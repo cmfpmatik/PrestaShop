@@ -1,462 +1,555 @@
 <?php
-/*
-* 2007-2013 PrestaShop
-*
-* NOTICE OF LICENSE
-*
-* This source file is subject to the Open Software License (OSL 3.0)
-* that is bundled with this package in the file LICENSE.txt.
-* It is also available through the world-wide-web at this URL:
-* http://opensource.org/licenses/osl-3.0.php
-* If you did not receive a copy of the license and are unable to
-* obtain it through the world-wide-web, please send an email
-* to license@prestashop.com so we can send you a copy immediately.
-*
-* DISCLAIMER
-*
-* Do not edit or add to this file if you wish to upgrade PrestaShop to newer
-* versions in the future. If you wish to customize PrestaShop for your
-* needs please refer to http://www.prestashop.com for more information.
-*
-*  @author PrestaShop SA <contact@prestashop.com>
-*  @copyright  2007-2013 PrestaShop SA
-*  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
-*  International Registered Trademark & Property of PrestaShop SA
-*/
+/**
+ * Copyright since 2007 PrestaShop SA and Contributors
+ * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.md.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@prestashop.com so we can send you a copy immediately.
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
+ * versions in the future. If you wish to customize PrestaShop for your
+ * needs please refer to https://devdocs.prestashop.com/ for more information.
+ *
+ * @author    PrestaShop SA and Contributors <contact@prestashop.com>
+ * @copyright Since 2007 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 
+/**
+ * @property RequestSql $object
+ */
 class AdminRequestSqlControllerCore extends AdminController
 {
-	/**
-	 * @var array : List of encoding type for a file
-	 */
-	public static $encoding_file = array(
-		array('value' => 1, 'name' => 'utf-8'),
-		array('value' => 2, 'name' => 'iso-8859-1')
-	);
+    /**
+     * @var array : List of encoding type for a file
+     */
+    public static $encoding_file = [
+        ['value' => 1, 'name' => 'utf-8'],
+        ['value' => 2, 'name' => 'iso-8859-1'],
+    ];
 
-	public function __construct()
-	{
-		$this->table = 'request_sql';
-		$this->className = 'RequestSql';
-	 	$this->lang = false;
-		$this->export = true;
+    /**
+     * @deprecated since 1.7.6, to be removed in the next minor
+     */
+    public function __construct()
+    {
+        @trigger_error(
+            'The AdminRequestSqlController is deprecated and will be removed in the next minor',
+            E_USER_DEPRECATED
+        );
 
-		$this->context = Context::getContext();
+        $this->bootstrap = true;
+        $this->table = 'request_sql';
+        $this->className = 'RequestSql';
+        $this->lang = false;
+        $this->export = true;
 
-		$this->fields_list = array(
-			'id_request_sql' => array('title' => $this->l('ID'), 'width' => 25),
-			'name' => array('title' => $this->l('Name'), 'width' => 300),
-			'sql' => array('title' => $this->l('Request'), 'width' => 500)
-		);
+        parent::__construct();
 
-		$this->fields_options = array(
-			'general' => array(
-				'title' =>	$this->l('Settings'),
-				'fields' =>	array(
-					'PS_ENCODING_FILE_MANAGER_SQL' => array(
-						'title' => $this->l('Select your encoding file by default'),
-						'cast' => 'intval',
-						'type' => 'select',
-						'identifier' => 'value',
-						'list' => self::$encoding_file,
-						'visibility' => Shop::CONTEXT_ALL
-					)
-				),
-				'submit' => array()
-			)
-		);
+        $this->fields_list = [
+            'id_request_sql' => ['title' => $this->trans('ID', [], 'Admin.Global'), 'class' => 'fixed-width-xs'],
+            'name' => ['title' => $this->trans('SQL query Name', [], 'Admin.Advparameters.Feature')],
+            'sql' => [
+                'title' => $this->trans('SQL query', [], 'Admin.Advparameters.Feature'),
+                'filter_key' => 'a!sql',
+            ],
+        ];
 
-	 	$this->bulk_actions = array('delete' => array('text' => $this->l('Delete selected'),'confirm' => $this->l('Delete selected items?')));
+        $this->fields_options = [
+            'general' => [
+                'title' => $this->trans('Settings', [], 'Admin.Global'),
+                'fields' => [
+                    'PS_ENCODING_FILE_MANAGER_SQL' => [
+                        'title' => $this->trans('Select your default file encoding', [], 'Admin.Advparameters.Feature'),
+                        'cast' => 'intval',
+                        'type' => 'select',
+                        'identifier' => 'value',
+                        'list' => self::$encoding_file,
+                        'visibility' => Shop::CONTEXT_ALL,
+                    ],
+                ],
+                'submit' => ['title' => $this->trans('Save', [], 'Admin.Actions')],
+            ],
+        ];
 
-		parent::__construct();
-	}
+        $this->bulk_actions = [
+            'delete' => [
+                'text' => $this->trans('Delete selected', [], 'Admin.Actions'),
+                'confirm' => $this->trans('Delete selected items?', [], 'Admin.Notifications.Warning'),
+                'icon' => 'icon-trash',
+            ],
+        ];
+    }
 
-	public function renderOptions()
-	{
-		// Set toolbar options
-		$this->display = 'options';
-		$this->show_toolbar = true;
-		$this->toolbar_scroll = true;
-		$this->initToolbar();
+    public function renderOptions()
+    {
+        // Set toolbar options
+        $this->display = 'options';
+        $this->show_toolbar = true;
+        $this->toolbar_scroll = true;
+        $this->initToolbar();
 
-		return parent::renderOptions();
-	}
+        return parent::renderOptions();
+    }
 
-	public function initToolbar()
-	{
-		if ($this->display == 'view' && $id_request = Tools::getValue('id_request_sql'))
-			$this->toolbar_btn['edit'] = array(
-				'href' => self::$currentIndex.'&amp;updaterequest_sql&amp;token='.$this->token.'&amp;id_request_sql='.(int)$id_request,
-				'desc' => $this->l('Edit this request')
-			);
+    public function initToolbar()
+    {
+        if ($this->display == 'view' && $id_request = Tools::getValue('id_request_sql')) {
+            $this->toolbar_btn['edit'] = [
+                'href' => self::$currentIndex . '&amp;updaterequest_sql&amp;token=' . $this->token . '&amp;id_request_sql=' . (int) $id_request,
+                'desc' => $this->trans('Edit this SQL query', [], 'Admin.Advparameters.Feature'),
+            ];
+        }
 
-		parent::initToolbar();
+        parent::initToolbar();
 
-		if ($this->display == 'options')
-			unset($this->toolbar_btn['new']);
-		else
-			unset($this->toolbar_btn['save']);
-	}
+        if ($this->display == 'options') {
+            unset($this->toolbar_btn['new']);
+        }
+    }
 
-	public function renderList()
-	{
-		// Set toolbar options
-		$this->display = null;
-		$this->initToolbar();
+    public function renderList()
+    {
+        // Set toolbar options
+        $this->display = null;
+        $this->initToolbar();
 
-		$this->displayWarning($this->l('When saving the query, only the request type "SELECT" is allowed.'));
-		$this->displayInformation('
-		<strong>'.$this->l('How do I create a new sql query?').'</strong><br />
+        $this->displayWarning($this->trans('When saving the query, only the "SELECT" SQL statement is allowed.', [], 'Admin.Advparameters.Notification'));
+        $this->displayInformation('
+		<strong>' . $this->trans('How do I create a new SQL query?', [], 'Admin.Advparameters.Help') . '</strong><br />
 		<ul>
-			<li>'.$this->l('Click "Add New".').'</li>
-			<li>'.$this->l('Fill in the fields and click "Save".').'</li>
-			<li>'.$this->l('You can then view the query results by clicking on the tab:').' <img src="../img/admin/details.gif" /></li>
-			<li>'.$this->l('You can also export the query results as CSV file by clicking on the tab:').' <img src="../img/admin/export.gif" /></li>
+			<li>' . $this->trans('Click "%add_new_label%".', ['%add_new_label%' => $this->trans('Add new SQL query', [], 'Admin.Advparameters.Feature')], 'Admin.Advparameters.Help') . '</li>
+			<li>' . $this->trans('Fill in the fields and click "%save_label%".', ['%save_label%' => $this->trans('Save', [], 'Admin.Actions')], 'Admin.Advparameters.Help') . '</li>
+			<li>' . $this->trans('You can then view the query results by clicking on the "%view_label%" action in the dropdown menu', ['%view_label%' => $this->trans('View', [], 'Admin.Global')], 'Admin.Advparameters.Help') . ' <i class="icon-pencil"></i></li>
+			<li>' . $this->trans('You can also export the query results as a CSV file by clicking on the "%export_label%" button', ['%export_label%' => $this->trans('Export', [], 'Admin.Actions')], 'Admin.Advparameters.Help') . ' <i class="icon-cloud-upload"></i></li>
 		</ul>');
 
-		$this->addRowAction('export');
-		$this->addRowAction('view');
-		$this->addRowAction('edit');
-		$this->addRowAction('delete');
+        $this->addRowAction('export');
+        $this->addRowAction('view');
+        $this->addRowAction('edit');
+        $this->addRowAction('delete');
 
-	 	return parent::renderList();
-	}
+        return parent::renderList();
+    }
 
-	public function renderForm()
-	{
-		$this->fields_form = array(
-			'legend' => array(
-				'title' => $this->l('Request')
-			),
-			'input' => array(
-				array(
-					'type' => 'text',
-					'label' => $this->l('Name:'),
-					'name' => 'name',
-					'size' => 103,
-					'required' => true
-				),
-				array(
-					'type' => 'textarea',
-					'label' => $this->l('Request:'),
-					'name' => 'sql',
-					'cols' => 100,
-					'rows' => 10,
-					'required' => true
-				)
-			),
-			'submit' => array(
-				'title' => $this->l('Save'),
-				'class' => 'button'
-			)
-		);
+    public function renderForm()
+    {
+        $this->fields_form = [
+            'legend' => [
+                'title' => $this->trans('SQL query', [], 'Admin.Advparameters.Feature'),
+                'icon' => 'icon-cog',
+            ],
+            'input' => [
+                [
+                    'type' => 'text',
+                    'label' => $this->trans('SQL query name', [], 'Admin.Advparameters.Feature'),
+                    'name' => 'name',
+                    'size' => 103,
+                    'required' => true,
+                ],
+                [
+                    'type' => 'textarea',
+                    'label' => $this->trans('SQL query', [], 'Admin.Advparameters.Feature'),
+                    'name' => 'sql',
+                    'cols' => 100,
+                    'rows' => 10,
+                    'required' => true,
+                ],
+            ],
+            'submit' => [
+                'title' => $this->trans('Save', [], 'Admin.Actions'),
+            ],
+        ];
 
-		$request = new RequestSql();
-		$this->tpl_form_vars = array('tables' => $request->getTables());
+        $request = new RequestSql();
+        $this->tpl_form_vars = ['tables' => $request->getTables()];
 
-		return parent::renderForm();
-	}
+        return parent::renderForm();
+    }
 
+    public function postProcess()
+    {
+        /* PrestaShop demo mode */
+        if (_PS_MODE_DEMO_) {
+            $this->errors[] = $this->trans('This functionality has been disabled.', [], 'Admin.Notifications.Error');
 
-	public function postProcess()
-	{
-		/* PrestaShop demo mode */
-		if (_PS_MODE_DEMO_)
-		{
-			$this->errors[] = Tools::displayError('This functionality has been disabled.');
-			return;
-		}
-		/* PrestaShop demo mode*/
-		return parent::postProcess();
-	}
-	
-	/**
-	 * method call when ajax request is made with the details row action
-	 * @see AdminController::postProcess()
-	 */
-	public function ajaxProcess()
-	{
-		/* PrestaShop demo mode */
-		if (_PS_MODE_DEMO_)
-			die(Tools::displayError('This functionality has been disabled.'));
-		/* PrestaShop demo mode*/
-		if ($table = Tools::GetValue('table'))
-		{
-			$request_sql = new RequestSql();
-			$attributes = $request_sql->getAttributesByTable($table);
-			foreach ($attributes as $key => $attribute)
-			{
-				unset($attributes[$key]['Null']);
-				unset($attributes[$key]['Key']);
-				unset($attributes[$key]['Default']);
-				unset($attributes[$key]['Extra']);
-			}
-			die(Tools::jsonEncode($attributes));
-		}
-	}
+            return;
+        }
 
-	public function renderView()
-	{
-		if (!($obj = $this->loadObject(true)))
-			return;
+        return parent::postProcess();
+    }
 
-		$view = array();
+    /**
+     * method call when ajax request is made with the details row action.
+     *
+     * @see AdminController::postProcess()
+     */
+    public function ajaxProcess()
+    {
+        /* PrestaShop demo mode */
+        if (_PS_MODE_DEMO_) {
+            die($this->trans('This functionality has been disabled.', [], 'Admin.Notifications.Error'));
+        }
+        if ($table = Tools::getValue('table')) {
+            $request_sql = new RequestSql();
+            $attributes = $request_sql->getAttributesByTable($table);
+            foreach ($attributes as $key => $attribute) {
+                unset(
+                    $attributes[$key]['Null'],
+                    $attributes[$key]['Key'],
+                    $attributes[$key]['Default'],
+                    $attributes[$key]['Extra']
+                );
+            }
+            die(json_encode($attributes));
+        }
+    }
 
-		if ($results = Db::getInstance()->executeS($obj->sql))
-		{
-			foreach (array_keys($results[0]) as $key)
-				$tab_key[] = $key;
+    public function renderView()
+    {
+        /** @var RequestSql $obj */
+        if (!($obj = $this->loadObject(true))) {
+            return;
+        }
 
-			$view['name'] = $obj->name;
-			$view['key'] = $tab_key;
-			$view['results'] = $results;
+        $view = [];
+        if ($results = Db::getInstance()->executeS($obj->sql)) {
+            foreach (array_keys($results[0]) as $key) {
+                $tab_key[] = $key;
+            }
 
-			$request_sql = new RequestSql();
-			$view['attributes'] = $request_sql->attributes;
-		}
-		else
-			$view['error'] = true;
+            $view['name'] = $obj->name;
+            $view['key'] = $tab_key;
+            $view['results'] = $results;
 
-		$this->tpl_view_vars = array(
-			'view' => $view
-		);
-		return parent::renderView();
-	}
+            $this->toolbar_title = $obj->name;
 
-	public function _childValidation()
-	{
-		if (Tools::getValue('submitAdd'.$this->table) && $sql = Tools::getValue('sql'))
-		{
-			$request_sql = new RequestSql();
-			$parser = $request_sql->parsingSql($sql);
-			$validate = $request_sql->validateParser($parser, false, $sql);
+            $request_sql = new RequestSql();
+            $view['attributes'] = $request_sql->attributes;
+        } else {
+            $view['error'] = true;
+        }
 
-			if (!$validate || !empty($request_sql->error_sql))
-				$this->displayError($request_sql->error_sql);
-		}
-	}
+        $this->tpl_view_vars = [
+            'view' => $view,
+        ];
 
-	/**
-	 * Display export action link
-	 */
-	public function displayExportLink($token, $id)
-	{
-		$tpl = $this->createTemplate('list_action_export.tpl');
+        return parent::renderView();
+    }
 
-		$tpl->assign(array(
-			'href' => self::$currentIndex.'&token='.$this->token.'&'.$this->identifier.'='.$id.'&export'.$this->table.'=1',
-			'action' => $this->l('Export')
-		));
+    public function _childValidation()
+    {
+        if (Tools::getValue('submitAdd' . $this->table) && $sql = Tools::getValue('sql')) {
+            $request_sql = new RequestSql();
+            $parser = $request_sql->parsingSql($sql);
+            $validate = $request_sql->validateParser($parser, false, $sql);
 
-		return $tpl->fetch();
-	}
+            if (!$validate || count($request_sql->error_sql)) {
+                $this->displayError($request_sql->error_sql);
+            }
+        }
+    }
 
-	public function initProcess()
-	{
-		parent::initProcess();
-		if (Tools::getValue('export'.$this->table))
-		{
-			$this->display = 'export';
-			$this->action = 'export';
-		}
-	}
+    /**
+     * Display export action link.
+     *
+     * @param $token
+     * @param int $id
+     *
+     * @return string
+     *
+     * @throws Exception
+     * @throws SmartyException
+     */
+    public function displayExportLink($token, $id)
+    {
+        $tpl = $this->createTemplate('list_action_export.tpl');
 
-	public function initContent()
-	{
-		// toolbar (save, cancel, new, ..)
-		$this->initToolbar();
-		if ($this->display == 'edit' || $this->display == 'add')
-		{
-			if (!$this->loadObject(true))
-				return;
+        $tpl->assign([
+            'href' => self::$currentIndex . '&token=' . $this->token . '&' . $this->identifier . '=' . $id . '&export' . $this->table . '=1',
+            'action' => $this->trans('Export', [], 'Admin.Actions'),
+        ]);
 
-			$this->content .= $this->renderForm();
-		}
-		else if ($this->display == 'view')
-		{
-			// Some controllers use the view action without an object
-			if ($this->className)
-				$this->loadObject(true);
-			$this->content .= $this->renderView();
-		}
-		else if ($this->display == 'export')
-			$this->generateExport();
-		else if (!$this->ajax)
-		{
-			$this->content .= $this->renderList();
-			$this->content .= $this->renderOptions();
-		}
+        return $tpl->fetch();
+    }
 
-		$this->context->smarty->assign(array(
-			'content' => $this->content,
-			'url_post' => self::$currentIndex.'&token='.$this->token,
-		));
-	}
+    public function initProcess()
+    {
+        parent::initProcess();
+        if (Tools::getValue('export' . $this->table)) {
+            $this->display = 'export';
+            $this->action = 'export';
+        }
+    }
 
-	/**
-	 * Genrating a export file
-	 */
-	public function generateExport()
-	{
-		$id = Tools::getValue($this->identifier);
-		if (!Validate::isFileName($id))
-			die(Tools::displayError());
-		$file = 'request_sql_'.$id.'.csv';
-		if ($csv = fopen(_PS_ADMIN_DIR_.'/export/'.$file, 'w'))
-		{
-			$sql = RequestSql::getRequestSqlById($id);
+    public function initContent()
+    {
+        if ($this->display == 'edit' || $this->display == 'add') {
+            if (!$this->loadObject(true)) {
+                return;
+            }
 
-			if ($sql)
-			{
-				$results = Db::getInstance()->executeS($sql[0]['sql']);
-				foreach (array_keys($results[0]) as $key)
-				{
-					$tab_key[] = $key;
-					fputs($csv, $key.';');
-				}
-				foreach ($results as $result)
-				{
-					fputs($csv, "\n");
-					foreach ($tab_key as $name)
-						fputs($csv, '"'.strip_tags($result[$name]).'";');
-				}
-				if (file_exists(_PS_ADMIN_DIR_.'/export/'.$file))
-				{
-					$filesize = filesize(_PS_ADMIN_DIR_.'/export/'.$file);
-					$upload_max_filesize = Tools::convertBytes(ini_get('upload_max_filesize'));
-					if ($filesize < $upload_max_filesize)
-					{
-						if (Configuration::get('PS_ENCODING_FILE_MANAGER_SQL'))
-							$charset = Configuration::get('PS_ENCODING_FILE_MANAGER_SQL');
-						else
-							$charset = self::$encoding_file[0]['name'];
+            $this->content .= $this->renderForm();
+        } elseif ($this->display == 'view') {
+            // Some controllers use the view action without an object
+            if ($this->className) {
+                $this->loadObject(true);
+            }
+            $this->content .= $this->renderView();
+        } elseif ($this->display == 'export') {
+            $this->processExport();
+        } elseif (!$this->ajax) {
+            $this->content .= $this->renderList();
+            $this->content .= $this->renderOptions();
+        }
 
-						header('Content-Type: text/csv; charset='.$charset);
-						header('Cache-Control: no-store, no-cache');
-						header('Content-Disposition: attachment; filename="'.$file.'"');
-						header('Content-Length: '.$filesize);
-						readfile(_PS_ADMIN_DIR_.'/export/'.$file);
-						die();
-					}
-					else
-						$this->errors[] = Tools::DisplayError('The file is too large and can not be downloaded. Please use the clause "LIMIT" in this query.');
-				}
-			}
-		}
-	}
+        $this->context->smarty->assign([
+            'content' => $this->content,
+        ]);
+    }
 
-	/**
-	 * Display all errors
-	 *
-	 * @param $e : array of errors
-	 */
-	public function displayError($e)
-	{
-		foreach (array_keys($e) as $key)
-		{
-			switch ($key)
-			{
-				case 'checkedFrom':
-					if (isset($e[$key]['table']))
-						$this->errors[] = sprintf(Tools::displayError('The Table "%s" doesn\'t exist.'), $e[$key]['table']);
-					else if (isset($e[$key]['attribut']))
-						$this->errors[] = sprintf(
-							Tools::displayError('The attribute "%1$s" does not exist in the table: %2$s.'),
-							$e[$key]['attribut'][0],
-							$e[$key]['attribut'][1]
-						);
-					else
-						$this->errors[] = Tools::displayError('Error');
-				break;
+    public function initPageHeaderToolbar()
+    {
+        if (empty($this->display)) {
+            $this->page_header_toolbar_btn['new_request'] = [
+                'href' => self::$currentIndex . '&addrequest_sql&token=' . $this->token,
+                'desc' => $this->trans('Add new SQL query', [], 'Admin.Advparameters.Feature'),
+                'icon' => 'process-icon-new',
+            ];
+        }
 
-				case 'checkedSelect':
-					if (isset($e[$key]['table']))
-						$this->errors[] = sprintf(Tools::displayError('The Table "%s" doesn\'t exist.'), $e[$key]['table']);
-					else if (isset($e[$key]['attribut']))
-						$this->errors[] = sprintf(
-							Tools::displayError('The attribute "%1$s" does not exist in the table: %2$s.'),
-							$e[$key]['attribut'][0],
-							$e[$key]['attribut'][1]
-						);
-					else if (isset($e[$key]['*']))
-						$this->errors[] = Tools::displayError('The operator "*" can be used in a nested query.');
-					else
-						$this->errors[] = Tools::displayError('Error');
-				break;
+        parent::initPageHeaderToolbar();
+    }
 
-				case 'checkedWhere':
-					if (isset($e[$key]['operator']))
-						$this->errors[] = sprintf(Tools::displayError('The operator "%s" is incorrect.'), $e[$key]['operator']);
-					else if (isset($e[$key]['attribut']))
-						$this->errors[] = sprintf(
-							Tools::displayError('The attribute "%1$s" does not exist in the table: %2$s.'),
-							$e[$key]['attribut'][0],
-							$e[$key]['attribut'][1]
-						);
-					else
-						$this->errors[] = Tools::displayError('Error');
-				break;
+    /**
+     * Genrating a export file.
+     */
+    public function processExport($textDelimiter = '"')
+    {
+        $id = Tools::getValue($this->identifier);
+        $export_dir = defined('_PS_HOST_MODE_') ? _PS_ROOT_DIR_ . '/export/' : _PS_ADMIN_DIR_ . '/export/';
+        if (!Validate::isFileName($id)) {
+            die(Tools::displayError());
+        }
+        $file = 'request_sql_' . $id . '.csv';
+        if ($csv = fopen($export_dir . $file, 'wb')) {
+            $sql = RequestSql::getRequestSqlById($id);
 
-				case 'checkedHaving':
-					if (isset($e[$key]['operator']))
-						$this->errors[] = sprintf(Tools::displayError('The operator "%s" is incorrect.'), $e[$key]['operator']);
-					else if (isset($e[$key]['attribut']))
-						$this->errors[] = sprintf(
-							Tools::displayError('The attribute "%1$s" does not exist in the table: %2$s.'),
-							$e[$key]['attribut'][0],
-							$e[$key]['attribut'][1]
-						);
-					else
-						$this->errors[] = Tools::displayError('Error');
-				break;
+            if ($sql) {
+                $results = Db::getInstance()->executeS($sql[0]['sql']);
+                foreach (array_keys($results[0]) as $key) {
+                    $tab_key[] = $key;
+                    fwrite($csv, $key . ';');
+                }
+                foreach ($results as $result) {
+                    fwrite($csv, "\n");
+                    foreach ($tab_key as $name) {
+                        fwrite($csv, $textDelimiter . strip_tags($result[$name]) . $textDelimiter . ';');
+                    }
+                }
+                if (file_exists($export_dir . $file)) {
+                    $filesize = filesize($export_dir . $file);
+                    $upload_max_filesize = Tools::convertBytes(ini_get('upload_max_filesize'));
+                    if ($filesize < $upload_max_filesize) {
+                        if (Configuration::get('PS_ENCODING_FILE_MANAGER_SQL')) {
+                            $charset = Configuration::get('PS_ENCODING_FILE_MANAGER_SQL');
+                        } else {
+                            $charset = self::$encoding_file[0]['name'];
+                        }
 
-				case 'checkedOrder':
-					if (isset($e[$key]['attribut']))
-						$this->errors[] = sprintf(
-							Tools::displayError('The attribute "%1$s" does not exist in the table: %2$s.'),
-							$e[$key]['attribut'][0],
-							$e[$key]['attribut'][1]
-						);
-					else
-						$this->errors[] = Tools::displayError('Error');
-				break;
+                        header('Content-Type: text/csv; charset=' . $charset);
+                        header('Cache-Control: no-store, no-cache');
+                        header('Content-Disposition: attachment; filename="' . $file . '"');
+                        header('Content-Length: ' . $filesize);
+                        readfile($export_dir . $file);
+                        die();
+                    } else {
+                        $this->errors[] = $this->trans('The file is too large and cannot be downloaded. Please use the LIMIT clause in this query.', [], 'Admin.Advparameters.Notification');
+                    }
+                }
+            }
+        }
+    }
 
-				case 'checkedGroupBy':
-					if (isset($e[$key]['attribut']))
-						$this->errors[] = sprintf(
-							Tools::displayError('The attribute "%1$s" does not exist in the table: %2$s.'),
-							$e[$key]['attribut'][0],
-							$e[$key]['attribut'][1]
-						);
-					else
-						$this->errors[] = Tools::displayError('Error');
-				break;
+    /**
+     * Display all errors.
+     *
+     * @param $e : array of errors
+     */
+    public function displayError($e)
+    {
+        foreach (array_keys($e) as $key) {
+            switch ($key) {
+                case 'checkedFrom':
+                    if (isset($e[$key]['table'])) {
+                        $this->errors[] = $this->trans(
+                            'The "%tablename%" table does not exist.',
+                            [
+                                '%tablename%' => $e[$key]['table'],
+                            ],
+                            'Admin.Advparameters.Notification'
+                        );
+                    } elseif (isset($e[$key]['attribut'])) {
+                        $this->errors[] = $this->trans(
+                                'The "%attribute%" attribute does not exist in the "%table%" table.',
+                                [
+                                    '%attribute%' => $e[$key]['attribut'][0],
+                                    '%table%' => $e[$key]['attribut'][1],
+                                ],
+                                'Admin.Advparameters.Notification'
+                            );
+                    } else {
+                        $this->errors[] = $this->trans('Undefined "%s" error', ['checkedForm'], 'Admin.Advparameters.Notification');
+                    }
 
-				case 'checkedLimit':
-						$this->errors[] = Tools::displayError('The LIMIT clause must contain numeric arguments.');
-				break;
+                    break;
 
-				case 'returnNameTable':
-						if (isset($e[$key]['reference']))
-							$this->errors[] = sprintf(
-								Tools::displayError('The reference "%1$s" does not exist in the table: %2$s.'),
-								$e[$key]['reference'][0],
-								$e[$key]['attribut'][1]
-							);
-						else
-							$this->errors[] = Tools::displayError('When multiple tables are used, each attribute must refer back to a table.');
-				break;
+                case 'checkedSelect':
+                    if (isset($e[$key]['table'])) {
+                        $this->errors[] = $this->trans(
+                            'The "%tablename%" table does not exist.',
+                            [
+                                '%tablename%' => $e[$key]['table'],
+                            ],
+                            'Admin.Advparameters.Notification'
+                        );
+                    } elseif (isset($e[$key]['attribut'])) {
+                        $this->errors[] = $this->trans(
+                            'The "%attribute%" attribute does not exist in the "%table%" table.',
+                            [
+                                '%attribute%' => $e[$key]['attribut'][0],
+                                '%table%' => $e[$key]['attribut'][1],
+                            ],
+                            'Admin.Advparameters.Notification'
+                        );
+                    } elseif (isset($e[$key]['*'])) {
+                        $this->errors[] = $this->trans('The "*" operator cannot be used in a nested query.', [], 'Admin.Advparameters.Notification');
+                    } else {
+                        $this->errors[] = $this->trans('Undefined "%s" error', ['checkedSelect'], 'Admin.Advparameters.Notification');
+                    }
 
-				case 'testedRequired':
-						$this->errors[] = sprintf(Tools::displayError('%s doesn\'t exist.'), $e[$key]);
-					break;
+                    break;
 
-				case 'testedUnauthorized':
-						$this->errors[] = sprintf(Tools::displayError('Is an unauthorized keyword.'), $e[$key]);
-				break;
-			}
-		}
-	}
+                case 'checkedWhere':
+                    if (isset($e[$key]['operator'])) {
+                        $this->errors[] = $this->trans(
+                            'The operator "%s" is incorrect.',
+                            [
+                                '%operator%' => $e[$key]['operator'],
+                            ],
+                            'Admin.Advparameters.Notification'
+                        );
+                    } elseif (isset($e[$key]['attribut'])) {
+                        $this->errors[] = $this->trans(
+                            'The "%attribute%" attribute does not exist in the "%table%" table.',
+                            [
+                                '%attribute%' => $e[$key]['attribut'][0],
+                                '%table%' => $e[$key]['attribut'][1],
+                            ],
+                            'Admin.Advparameters.Notification'
+                        );
+                    } else {
+                        $this->errors[] = $this->trans('Undefined "%s" error', ['checkedWhere'], 'Admin.Advparameters.Notification');
+                    }
+
+                    break;
+
+                case 'checkedHaving':
+                    if (isset($e[$key]['operator'])) {
+                        $this->errors[] = $this->trans(
+                            'The "%operator%" operator is incorrect.',
+                            [
+                                '%operator%' => $e[$key]['operator'],
+                            ],
+                            'Admin.Advparameters.Notification'
+                        );
+                    } elseif (isset($e[$key]['attribut'])) {
+                        $this->errors[] = $this->trans(
+                            'The "%attribute%" attribute does not exist in the "%table%" table.',
+                            [
+                                '%attribute%' => $e[$key]['attribut'][0],
+                                '%table%' => $e[$key]['attribut'][1],
+                            ],
+                            'Admin.Advparameters.Notification'
+                        );
+                    } else {
+                        $this->errors[] = $this->trans('Undefined "%s" error', ['checkedHaving'], 'Admin.Advparameters.Notification');
+                    }
+
+                    break;
+
+                case 'checkedOrder':
+                    if (isset($e[$key]['attribut'])) {
+                        $this->errors[] = $this->trans(
+                            'The "%attribute%" attribute does not exist in the "%table%" table.',
+                            [
+                                '%attribute%' => $e[$key]['attribut'][0],
+                                '%table%' => $e[$key]['attribut'][1],
+                            ],
+                            'Admin.Advparameters.Notification'
+                        );
+                    } else {
+                        $this->errors[] = $this->trans('Undefined "%s" error', ['checkedOrder'], 'Admin.Advparameters.Notification');
+                    }
+
+                    break;
+
+                case 'checkedGroupBy':
+                    if (isset($e[$key]['attribut'])) {
+                        $this->errors[] = $this->trans(
+                            'The "%attribute%" attribute does not exist in the "%table%" table.',
+                            [
+                                '%attribute%' => $e[$key]['attribut'][0],
+                                '%table%' => $e[$key]['attribut'][1],
+                            ],
+                            'Admin.Advparameters.Notification'
+                        );
+                    } else {
+                        $this->errors[] = $this->trans('Undefined "%s" error', ['checkedGroupBy'], 'Admin.Advparameters.Notification');
+                    }
+
+                    break;
+
+                case 'checkedLimit':
+                    $this->errors[] = $this->trans('The LIMIT clause must contain numeric arguments.', [], 'Admin.Advparameters.Notification');
+
+                    break;
+
+                case 'returnNameTable':
+                    if (isset($e[$key]['reference'])) {
+                        $this->errors[] = $this->trans(
+                            'The "%reference%" reference does not exist in the "%table%" table.',
+                            [
+                                '%reference%' => $e[$key]['reference'][0],
+                                '%table%' => $e[$key]['attribut'][1],
+                            ],
+                            'Admin.Advparameters.Notification'
+                        );
+                    } else {
+                        $this->errors[] = $this->trans('When multiple tables are used, each attribute must refer back to a table.', [], 'Admin.Advparameters.Notification');
+                    }
+
+                    break;
+
+                case 'testedRequired':
+                    $this->errors[] = $this->trans('"%key%" does not exist.', ['%key%' => $e[$key]], 'Admin.Notifications.Error');
+
+                    break;
+
+                case 'testedUnauthorized':
+                    $this->errors[] = $this->trans('"%key%" is an unauthorized keyword.', ['%key%' => $e[$key]], 'Admin.Advparameters.Notification');
+
+                    break;
+            }
+        }
+    }
 }
-
-

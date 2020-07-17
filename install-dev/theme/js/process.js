@@ -1,3 +1,28 @@
+/**
+ * Copyright since 2007 PrestaShop SA and Contributors
+ * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.md.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@prestashop.com so we can send you a copy immediately.
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
+ * versions in the future. If you wish to customize PrestaShop for your
+ * needs please refer to https://devdocs.prestashop.com/ for more information.
+ *
+ * @author    PrestaShop SA and Contributors <contact@prestashop.com>
+ * @copyright Since 2007 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
+
 var is_installing = false;
 $(document).ready(function()
 {
@@ -13,7 +38,7 @@ function start_install()
 		return;
 	is_installing = true;
 
-	$('.process_step').removeClass('fail').removeClass('success').hide();
+	$('.process_step').removeClass('fail').removeClass('success').slideUp().hide();
 	$('.error_log').hide();
 	$('#progress_bar').show();
 	$('#progress_bar .installing').show();
@@ -31,7 +56,8 @@ function process_install(step)
 	if (!step)
 		step = process_steps[0];
 
-	$('.installing').hide().html(step.lang + ' ...').fadeIn('slow');
+	$('#process_step_'+step.key).slideDown();
+	$('.installing').hide().html(step.lang + '...').fadeIn('slow');
 
 	$.ajax({
 		url: 'index.php',
@@ -43,7 +69,7 @@ function process_install(step)
 			// No error during this step
 			if (json && json.success === true)
 			{
-				$('#process_step_'+step.key).show().addClass('success');
+				$('#process_step_'+step.key).addClass('success');
 				current_step++;
 				if (current_step >= process_steps.length)
 				{
@@ -65,23 +91,23 @@ function process_install(step)
 						process_install(process_steps[current_step]);
 				}
 			}
-			// An error occured during this step
+			// An error occurred during this step
 			else
 			{
 				install_error(step, (json) ? json.message : '');
 			}
 		},
-		// An error HTTP (page not found, json not valid, etc.) occured during this step
-		error: function()
-		{
-			install_error(step);
-		}
+		// An error HTTP (page not found, json not valid, etc.) occurred during this step
+		error: function( jqXHR, textStatus ) {
+                    var errorMsg = 'HTTP '+ jqXHR.status + ' - '+ textStatus +' - '+ jqXHR.responseText;
+                    install_error(step, errorMsg);
+                }
 	});
 }
 
 function process_install_subtasks(step)
 {
-	$('.installing').hide().html(step.lang+' ...').fadeIn('slow');
+	$('.installing').hide().html(step.lang+'...').fadeIn('slow');
 	process_install_subtask(step, 0);
 }
 
@@ -122,17 +148,14 @@ function process_install_subtask(step, current_subtask)
 				else
 					process_install_subtask(step, current_subtask);
 			}
-			// An error occured during this step
 			else
-			{
 				install_error(step, (json) ? json.message : '');
-			}
 		},
-		// An error HTTP (page not found, json not valid, etc.) occured during this step
-		error: function()
-		{
-			install_error(step);
-		}
+		// An error HTTP (page not found, json not valid, etc.) occurred during this step
+                error: function( jqXHR, textStatus ) {
+                    var errorMsg = 'HTTP '+ jqXHR.status + ' - '+ textStatus +' - '+ jqXHR.responseText;
+                    install_error(step, errorMsg);
+                }
 	});
 }
 
@@ -144,27 +167,33 @@ function install_error(step, errors)
 	$('#error_process').show();
 	$('#process_step_'+step.key).show().addClass('fail');
 	$('#progress_bar .total .progress').stop();
-	$('#progress_bar .installing').hide();
+	$('#progress_bar .installing').slideUp();
 	$('.stepList li:last-child').addClass('ko');
 
-	if (errors)
-	{
+	if (errors) {
 		var list_errors = errors;
-		if ($.type(list_errors) == 'string')
-			list_errors = [list_errors];
+
+		if ($.type(list_errors) == 'string') {
+			list_errors = [];
+			list_errors[0] = errors;
+		} else if ($.type(list_errors) == 'array') {
+			list_errors = [list_errors[0]];
+		}
 
 		var display = '<ol>';
-		$.each(list_errors, function(k, v)
-		{
-			if (typeof psuser_assistance != 'undefined')
-				psuser_assistance.setStep('install_process_error', {'error':v});
-			display += '<li>'+v+'</li>';
+
+		$.each(list_errors, function(k, v) {
+			if (typeof psuser_assistance != 'undefined') {
+				psuser_assistance.setStep('install_process_error', {'error': v + ' || {"version": "' + ps_version + '"}'});
+			}
+			display += '<li>' + (k + 1) + ': ' + v + '</li>';
 		});
+
 		display += '</ol>';
-		$('#process_step_'+step.key+' .error_log').html(display).show();
+		$('#error_process').append(display);
+	} else if (typeof psuser_assistance != 'undefined') {
+		psuser_assistance.setStep('install_process_error', {'error': 'No message || {"version": "' + ps_version + '"}'});
 	}
-	if (typeof psuser_assistance != 'undefined')
-		psuser_assistance.setStep('install_process_error');
 
 	$('#tabs li a').each(function() {
 		 this.href=this.rel;
@@ -179,8 +208,9 @@ function install_success()
 	$('#install_process_form').slideUp();
 	$('#install_process_success').slideDown();
 	$('.stepList li:last-child').addClass('ok');
-	if (typeof psuser_assistance != 'undefined')
-		psuser_assistance.setStep('install_process_success');
+	if (typeof psuser_assistance != 'undefined') {
+    psuser_assistance.setStep('install_process_success');
+  }
 
 	$('#tabs li a').each(function() {
 		 this.href=this.rel;

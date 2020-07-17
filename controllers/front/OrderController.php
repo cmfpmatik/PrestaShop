@@ -1,379 +1,359 @@
 <?php
-/*
-* 2007-2013 PrestaShop
-*
-* NOTICE OF LICENSE
-*
-* This source file is subject to the Open Software License (OSL 3.0)
-* that is bundled with this package in the file LICENSE.txt.
-* It is also available through the world-wide-web at this URL:
-* http://opensource.org/licenses/osl-3.0.php
-* If you did not receive a copy of the license and are unable to
-* obtain it through the world-wide-web, please send an email
-* to license@prestashop.com so we can send you a copy immediately.
-*
-* DISCLAIMER
-*
-* Do not edit or add to this file if you wish to upgrade PrestaShop to newer
-* versions in the future. If you wish to customize PrestaShop for your
-* needs please refer to http://www.prestashop.com for more information.
-*
-*  @author PrestaShop SA <contact@prestashop.com>
-*  @copyright  2007-2013 PrestaShop SA
-*  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
-*  International Registered Trademark & Property of PrestaShop SA
-*/
+/**
+ * Copyright since 2007 PrestaShop SA and Contributors
+ * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.md.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@prestashop.com so we can send you a copy immediately.
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
+ * versions in the future. If you wish to customize PrestaShop for your
+ * needs please refer to https://devdocs.prestashop.com/ for more information.
+ *
+ * @author    PrestaShop SA and Contributors <contact@prestashop.com>
+ * @copyright Since 2007 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
+use PrestaShop\PrestaShop\Adapter\Product\PriceFormatter;
+use PrestaShop\PrestaShop\Core\Foundation\Templating\RenderableProxy;
 
-class OrderControllerCore extends ParentOrderController
+class OrderControllerCore extends FrontController
 {
-	public $step;
+    public $ssl = true;
+    public $php_self = 'order';
+    public $page_name = 'checkout';
+    public $checkoutWarning = false;
 
-	/**
-	 * Initialize order controller
-	 * @see FrontController::init()
-	 */
-	public function init()
-	{
-		global $orderTotal;
+    /**
+     * @var CheckoutProcess
+     */
+    protected $checkoutProcess;
 
-		parent::init();
+    /**
+     * @var CartChecksum
+     */
+    protected $cartChecksum;
 
-		$this->step = (int)(Tools::getValue('step'));
-		if (!$this->nbProducts)
-			$this->step = -1;		
+    /**
+     * Initialize order controller.
+     *
+     * @see FrontController::init()
+     */
+    public function init()
+    {
+        parent::init();
+        $this->cartChecksum = new CartChecksum(new AddressChecksum());
+    }
 
-		// If some products have disappear
-		if (!$this->context->cart->checkQuantities())
-		{
-			$this->step = 0;
-			$this->errors[] = Tools::displayError('An item in your cart is no longer available in this quantity. You cannot proceed with your order until the quantity is adjusted.');
-		}
+    public function postProcess()
+    {
+        parent::postProcess();
 
-		// Check minimal amount
-		$currency = Currency::getCurrency((int)$this->context->cart->id_currency);
+        if (Tools::isSubmit('submitReorder') && $id_order = (int) Tools::getValue('id_order')) {
+            $oldCart = new Cart(Order::getCartIdStatic($id_order, $this->context->customer->id));
+            $duplication = $oldCart->duplicate();
+            if (!$duplication || !Validate::isLoadedObject($duplication['cart'])) {
+                $this->errors[] = $this->trans('Sorry. We cannot renew your order.', [], 'Shop.Notifications.Error');
+            } elseif (!$duplication['success']) {
+                $this->errors[] = $this->trans(
+                    'Some items are no longer available, and we are unable to renew your order.',
+                    [],
+                    'Shop.Notifications.Error'
+                );
+            } else {
+                $this->context->cookie->id_cart = $duplication['cart']->id;
+                $context = $this->context;
+                $context->cart = $duplication['cart'];
+                CartRule::autoAddToCart($context);
+                $this->context->cookie->write();
+                Tools::redirect('index.php?controller=order');
+            }
+        }
 
-		$orderTotal = $this->context->cart->getOrderTotal();
-		$minimal_purchase = Tools::convertPrice((float)Configuration::get('PS_PURCHASE_MINIMUM'), $currency);
-		if ($this->context->cart->getOrderTotal(false, Cart::ONLY_PRODUCTS) < $minimal_purchase && $this->step > 0)
-		{
-			$this->step = 0;
-			$this->errors[] = sprintf(
-				Tools::displayError('A minimum purchase total of %s is required in order to validate your order.'),
-				Tools::displayPrice($minimal_purchase, $currency)
-			);
-		}
-		if (!$this->context->customer->isLogged(true) && in_array($this->step, array(1, 2, 3)))
-		{
-			$back_url = $this->context->link->getPageLink('order', true, (int)$this->context->language->id, array('step' => $this->step, 'multi-shipping' => (int)Tools::getValue('multi-shipping')));
-			$params = array('multi-shipping' => (int)Tools::getValue('multi-shipping'), 'display_guest_checkout' => (int)Configuration::get('PS_GUEST_CHECKOUT_ENABLED'), 'back' => $back_url);
-			Tools::redirect($this->context->link->getPageLink('authentication', true, (int)$this->context->language->id, $params));
-		}
+        $this->bootstrap();
+    }
 
-		if (Tools::getValue('multi-shipping') == 1)
-			$this->context->smarty->assign('multi_shipping', true);
-		else
-			$this->context->smarty->assign('multi_shipping', false);
+    /**
+     * @return CheckoutProcess
+     */
+    public function getCheckoutProcess()
+    {
+        return $this->checkoutProcess;
+    }
 
-		if ($this->context->customer->id)
-			$this->context->smarty->assign('address_list', $this->context->customer->getAddresses($this->context->language->id));
-		else
-			$this->context->smarty->assign('address_list', array());
-	}
+    /**
+     * @return CheckoutSession
+     */
+    public function getCheckoutSession()
+    {
+        $deliveryOptionsFinder = new DeliveryOptionsFinder(
+            $this->context,
+            $this->getTranslator(),
+            $this->objectPresenter,
+            new PriceFormatter()
+        );
 
-	public function postProcess()
-	{
-		// Update carrier selected on preProccess in order to fix a bug of
-		// block cart when it's hooked on leftcolumn
-		if ($this->step == 3 && Tools::isSubmit('processCarrier'))
-			$this->processCarrier();
-	}
+        $session = new CheckoutSession(
+            $this->context,
+            $deliveryOptionsFinder
+        );
 
-	/**
-	 * Assign template vars related to page content
-	 * @see FrontController::initContent()
-	 */
-	public function initContent()
-	{
-		global $isVirtualCart;
+        return $session;
+    }
 
-		parent::initContent();
+    protected function bootstrap()
+    {
+        $translator = $this->getTranslator();
 
-		if (Tools::isSubmit('ajax') && Tools::getValue('method') == 'updateExtraCarrier')
-		{
-			// Change virtualy the currents delivery options
-			$delivery_option = $this->context->cart->getDeliveryOption();
-			$delivery_option[(int)Tools::getValue('id_address')] = Tools::getValue('id_delivery_option');
-			$this->context->cart->setDeliveryOption($delivery_option);
-			$this->context->cart->save();
-			$return = array(
-				'content' => Hook::exec(
-					'displayCarrierList',
-					array(
-						'address' => new Address((int)Tools::getValue('id_address'))
-					)
-				)
-			);
-			die(Tools::jsonEncode($return));
-		}
+        $session = $this->getCheckoutSession();
 
-		if ($this->nbProducts)
-			$this->context->smarty->assign('virtual_cart', $isVirtualCart);
+        $this->checkoutProcess = new CheckoutProcess(
+            $this->context,
+            $session
+        );
 
-		// 4 steps to the order
-		switch ((int)$this->step)
-		{
-			case -1;
-				$this->context->smarty->assign('empty', 1);
-				$this->setTemplate(_PS_THEME_DIR_.'shopping-cart.tpl');
-			break;
+        $this->checkoutProcess
+            ->addStep(new CheckoutPersonalInformationStep(
+                $this->context,
+                $translator,
+                $this->makeLoginForm(),
+                $this->makeCustomerForm()
+            ))
+            ->addStep(new CheckoutAddressesStep(
+                $this->context,
+                $translator,
+                $this->makeAddressForm()
+            ));
 
-			case 1:
-				$this->_assignAddress();
-				$this->processAddressFormat();
-				if (Tools::getValue('multi-shipping') == 1)
-				{
-					$this->_assignSummaryInformations();
-					$this->context->smarty->assign('product_list', $this->context->cart->getProducts());
-					$this->setTemplate(_PS_THEME_DIR_.'order-address-multishipping.tpl');
-				}
-				else
-					$this->setTemplate(_PS_THEME_DIR_.'order-address.tpl');
-			break;
+        if (!$this->context->cart->isVirtualCart()) {
+            $checkoutDeliveryStep = new CheckoutDeliveryStep(
+                $this->context,
+                $translator
+            );
 
-			case 2:
-				if (Tools::isSubmit('processAddress'))
-					$this->processAddress();
-				$this->autoStep();
-				$this->_assignCarrier();
-				$this->setTemplate(_PS_THEME_DIR_.'order-carrier.tpl');
-			break;
+            $checkoutDeliveryStep
+                ->setRecyclablePackAllowed((bool) Configuration::get('PS_RECYCLABLE_PACK'))
+                ->setGiftAllowed((bool) Configuration::get('PS_GIFT_WRAPPING'))
+                ->setIncludeTaxes(
+                    !Product::getTaxCalculationMethod((int) $this->context->cart->id_customer)
+                    && (int) Configuration::get('PS_TAX')
+                )
+                ->setDisplayTaxesLabel((Configuration::get('PS_TAX') && !Configuration::get('AEUC_LABEL_TAX_INC_EXC')))
+                ->setGiftCost(
+                    $this->context->cart->getGiftWrappingPrice(
+                        $checkoutDeliveryStep->getIncludeTaxes()
+                    )
+                );
 
-			case 3:
-				// Check that the conditions (so active) were accepted by the customer
-				$cgv = Tools::getValue('cgv') || $this->context->cookie->check_cgv;
-				if (Configuration::get('PS_CONDITIONS') && (!Validate::isBool($cgv) || $cgv == false))
-					Tools::redirect('index.php?controller=order&step=2');
-				Context::getContext()->cookie->check_cgv = true;
+            $this->checkoutProcess->addStep($checkoutDeliveryStep);
+        }
 
-				// Check the delivery option is set
-				if (!$this->context->cart->isVirtualCart())
-				{
-					if (!Tools::getValue('delivery_option') && !Tools::getValue('id_carrier') && !$this->context->cart->delivery_option && !$this->context->cart->id_carrier)
-						Tools::redirect('index.php?controller=order&step=2');
-					elseif (!Tools::getValue('id_carrier') && !$this->context->cart->id_carrier)
-					{
-						$deliveries_options = Tools::getValue('delivery_option');
-						if (!$deliveries_options) {
-							$deliveries_options = $this->context->cart->delivery_option;
-						}
-						foreach ($deliveries_options as $delivery_option)
-							if (empty($delivery_option))
-								Tools::redirect('index.php?controller=order&step=2');
-					}
-				}
+        $this->checkoutProcess
+            ->addStep(new CheckoutPaymentStep(
+                $this->context,
+                $translator,
+                new PaymentOptionsFinder(),
+                new ConditionsToApproveFinder(
+                    $this->context,
+                    $translator
+                )
+            ));
+    }
 
-				$this->autoStep();
+    /**
+     * Persists cart-related data in checkout session.
+     *
+     * @param CheckoutProcess $process
+     */
+    protected function saveDataToPersist(CheckoutProcess $process)
+    {
+        $data = $process->getDataToPersist();
+        $addressValidator = new AddressValidator($this->context);
+        $customer = $this->context->customer;
+        $cart = $this->context->cart;
 
-				// Bypass payment step if total is 0
-				if (($id_order = $this->_checkFreeOrder()) && $id_order)
-				{
-					if ($this->context->customer->is_guest)
-					{
-						$order = new Order((int)$id_order);
-						$email = $this->context->customer->email;
-						$this->context->customer->mylogout(); // If guest we clear the cookie for security reason
-						Tools::redirect('index.php?controller=guest-tracking&id_order='.urlencode($order->reference).'&email='.urlencode($email));
-					}
-					else
-						Tools::redirect('index.php?controller=history');
-				}
-				$this->_assignPayment();
-				// assign some informations to display cart
-				$this->_assignSummaryInformations();
-				$this->setTemplate(_PS_THEME_DIR_.'order-payment.tpl');
-			break;
+        $shouldGenerateChecksum = false;
 
-			default:
-				$this->_assignSummaryInformations();
-				$this->setTemplate(_PS_THEME_DIR_.'shopping-cart.tpl');
-			break;
-		}
+        if ($customer->isGuest()) {
+            $shouldGenerateChecksum = true;
+        } else {
+            $invalidAddressIds = $addressValidator->validateCartAddresses($cart);
+            if (empty($invalidAddressIds)) {
+                $shouldGenerateChecksum = true;
+            }
+        }
 
-		$this->context->smarty->assign(array(
-			'currencySign' => $this->context->currency->sign,
-			'currencyRate' => $this->context->currency->conversion_rate,
-			'currencyFormat' => $this->context->currency->format,
-			'currencyBlank' => $this->context->currency->blank,
-		));
-	}
+        $data['checksum'] = $shouldGenerateChecksum
+            ? $this->cartChecksum->generateChecksum($cart)
+            : null;
 
-	protected function processAddressFormat()
-	{
-		$addressDelivery = new Address((int)$this->context->cart->id_address_delivery);
-		$addressInvoice = new Address((int)$this->context->cart->id_address_invoice);
+        Db::getInstance()->execute(
+            'UPDATE ' . _DB_PREFIX_ . 'cart SET checkout_session_data = "' . pSQL(json_encode($data)) . '"
+                WHERE id_cart = ' . (int) $cart->id
+        );
+    }
 
-		$invoiceAddressFields = AddressFormat::getOrderedAddressFields($addressInvoice->id_country, false, true);
-		$deliveryAddressFields = AddressFormat::getOrderedAddressFields($addressDelivery->id_country, false, true);
+    /**
+     * Restores from checkout session some previously persisted cart-related data.
+     *
+     * @param CheckoutProcess $process
+     */
+    protected function restorePersistedData(CheckoutProcess $process)
+    {
+        $cart = $this->context->cart;
+        $customer = $this->context->customer;
+        $rawData = Db::getInstance()->getValue(
+            'SELECT checkout_session_data FROM ' . _DB_PREFIX_ . 'cart WHERE id_cart = ' . (int) $cart->id
+        );
+        $data = json_decode($rawData, true);
+        if (!is_array($data)) {
+            $data = [];
+        }
 
-		$this->context->smarty->assign(array(
-			'inv_adr_fields' => $invoiceAddressFields,
-			'dlv_adr_fields' => $deliveryAddressFields));
-	}
+        $addressValidator = new AddressValidator();
+        $invalidAddressIds = $addressValidator->validateCartAddresses($cart);
 
-	/**
-	 * Order process controller
-	 */
-	public function autoStep()
-	{
-		global $isVirtualCart;
+        // Build the currently selected address' warning message (if relevant)
+        if (!$customer->isGuest() && !empty($invalidAddressIds)) {
+            $this->checkoutWarning['address'] = [
+                'id_address' => (int) reset($invalidAddressIds),
+                'exception' => $this->trans(
+                    'Your address is incomplete, please update it.',
+                    [],
+                    'Shop.Notifications.Error'
+                ),
+            ];
 
-		if ($this->step >= 2 && (!$this->context->cart->id_address_delivery || !$this->context->cart->id_address_invoice))
-			Tools::redirect('index.php?controller=order&step=1');
+            $checksum = null;
+        } else {
+            $checksum = $this->cartChecksum->generateChecksum($cart);
+        }
 
-		if ($this->step > 2 && !$isVirtualCart && count($this->context->cart->getDeliveryOptionList()) == 0)
-			Tools::redirect('index.php?controller=order&step=2');
+        // Prevent check for guests
+        if ($customer->id) {
+            // Prepare all other addresses' warning messages (if relevant).
+            // These messages are displayed when changing the selected address.
+            $allInvalidAddressIds = $addressValidator->validateCustomerAddresses($customer, $this->context->language);
+            $this->checkoutWarning['invalid_addresses'] = $allInvalidAddressIds;
+        }
 
-		$delivery = new Address((int)$this->context->cart->id_address_delivery);
-		$invoice = new Address((int)$this->context->cart->id_address_invoice);
+        if (isset($data['checksum']) && $data['checksum'] === $checksum) {
+            $process->restorePersistedData($data);
+        }
+    }
 
-		if ($delivery->deleted || $invoice->deleted)
-		{
-			if ($delivery->deleted)
-				unset($this->context->cart->id_address_delivery);
-			if ($invoice->deleted)
-				unset($this->context->cart->id_address_invoice);
-			Tools::redirect('index.php?controller=order&step=1');
-		}
-	}
+    public function displayAjaxselectDeliveryOption()
+    {
+        $cart = $this->cart_presenter->present(
+            $this->context->cart
+        );
 
-	/**
-	 * Manage address
-	 */
-	public function processAddress()
-	{
-		if (!Tools::getValue('multi-shipping'))
-			$this->context->cart->setNoMultishipping();
-		
-		$same = Tools::isSubmit('same');
-		if(!Tools::getValue('id_address_invoice', false) && !$same)
-			$same = true;
+        ob_end_clean();
+        header('Content-Type: application/json');
+        $this->ajaxRender(Tools::jsonEncode([
+            'preview' => $this->render('checkout/_partials/cart-summary', [
+                'cart' => $cart,
+                'static_token' => Tools::getToken(false),
+            ]),
+        ]));
+    }
 
-		if (!Customer::customerHasAddress($this->context->customer->id, (int)Tools::getValue('id_address_delivery'))
-			|| (!$same && Tools::getValue('id_address_delivery') != Tools::getValue('id_address_invoice')
-				&& !Customer::customerHasAddress($this->context->customer->id, (int)Tools::getValue('id_address_invoice'))))
-			$this->errors[] = Tools::displayError('Invalid address', !Tools::getValue('ajax'));
-		else
-		{
-			$this->context->cart->id_address_delivery = (int)Tools::getValue('id_address_delivery');
-			$this->context->cart->id_address_invoice = $same ? $this->context->cart->id_address_delivery : (int)Tools::getValue('id_address_invoice');
-			
-			CartRule::autoRemoveFromCart($this->context);
-			CartRule::autoAddToCart($this->context);
-			
-			if (!$this->context->cart->update())
-				$this->errors[] = Tools::displayError('An error occurred while updating your cart.', !Tools::getValue('ajax'));
+    public function initContent()
+    {
+        if (Configuration::isCatalogMode()) {
+            Tools::redirect('index.php');
+        }
 
-			if (!$this->context->cart->isMultiAddressDelivery())
-				$this->context->cart->setNoMultishipping(); // If there is only one delivery address, set each delivery address lines with the main delivery address
+        $this->restorePersistedData($this->checkoutProcess);
+        $this->checkoutProcess->handleRequest(
+            Tools::getAllValues()
+        );
 
-			if (Tools::isSubmit('message'))
-				$this->_updateMessage(Tools::getValue('message'));
-						
-			// Add checking for all addresses
-			$address_without_carriers = $this->context->cart->getDeliveryAddressesWithoutCarriers();
-			if (count($address_without_carriers) && !$this->context->cart->isVirtualCart())
-			{
-				if (count($address_without_carriers) > 1)
-					$this->errors[] = sprintf(Tools::displayError('There are no carriers that deliver to some addresses you selected.', !Tools::getValue('ajax')));
-				elseif ($this->context->cart->isMultiAddressDelivery())
-					$this->errors[] = sprintf(Tools::displayError('There are no carriers that deliver to one of the address you selected.', !Tools::getValue('ajax')));
-				else
-					$this->errors[] = sprintf(Tools::displayError('There are no carriers that deliver to the address you selected.', !Tools::getValue('ajax')));
-			}
-		}
-		
-		if ($this->errors)
-		{
-			if (Tools::getValue('ajax'))
-				die('{"hasError" : true, "errors" : ["'.implode('\',\'', $this->errors).'"]}');
-			$this->step = 1;
-		}
+        $presentedCart = $this->cart_presenter->present($this->context->cart);
 
-		if ($this->ajax)
-			die(true);
-	}
+        if (count($presentedCart['products']) <= 0 || $presentedCart['minimalPurchaseRequired']) {
+            // if there is no product in current cart, redirect to cart page
+            $cartLink = $this->context->link->getPageLink('cart');
+            Tools::redirect($cartLink);
+        }
 
-	/**
-	 * Carrier step
-	 */
-	protected function processCarrier()
-	{
-		global $orderTotal;
-		parent::_processCarrier();
+        $product = $this->context->cart->checkQuantities(true);
+        if (is_array($product)) {
+            // if there is an issue with product quantities, redirect to cart page
+            $cartLink = $this->context->link->getPageLink('cart', null, null, ['action' => 'show']);
+            Tools::redirect($cartLink);
+        }
 
-		if (count($this->errors))
-		{
-			$this->context->smarty->assign('errors', $this->errors);
-			$this->_assignCarrier();
-			$this->step = 2;
-			$this->displayContent();
-			include(dirname(__FILE__).'/../footer.php');
-			exit;
-		}
-		$orderTotal = $this->context->cart->getOrderTotal();
-	}
+        $this->checkoutProcess
+            ->setNextStepReachable()
+            ->markCurrentStep()
+            ->invalidateAllStepsAfterCurrent();
 
-	/**
-	 * Address step
-	 */
-	protected function _assignAddress()
-	{
-		parent::_assignAddress();
+        $this->saveDataToPersist($this->checkoutProcess);
 
-		if (Tools::getValue('multi-shipping'))
-			$this->context->cart->autosetProductAddress();
+        if (!$this->checkoutProcess->hasErrors()) {
+            if ($_SERVER['REQUEST_METHOD'] !== 'GET' && !$this->ajax) {
+                return $this->redirectWithNotifications(
+                    $this->checkoutProcess->getCheckoutSession()->getCheckoutURL()
+                );
+            }
+        }
 
-		$this->context->smarty->assign('cart', $this->context->cart);
+        $this->context->smarty->assign([
+            'checkout_process' => new RenderableProxy($this->checkoutProcess),
+            'cart' => $presentedCart,
+        ]);
 
-	}
+        $this->context->smarty->assign([
+            'display_transaction_updated_info' => Tools::getIsset('updatedTransaction'),
+        ]);
 
-	/**
-	 * Carrier step
-	 */
-	protected function _assignCarrier()
-	{
-		if (!isset($this->context->customer->id))
-			die(Tools::displayError('Fatal error: No customer'));
-		// Assign carrier
-		parent::_assignCarrier();
-		// Assign wrapping and TOS
-		$this->_assignWrappingAndTOS();
+        parent::initContent();
+        $this->setTemplate('checkout/checkout');
+    }
 
-		$this->context->smarty->assign(
-			array(
-				'is_guest' => (isset($this->context->customer->is_guest) ? $this->context->customer->is_guest : 0)
-			));
-	}
+    public function displayAjaxAddressForm()
+    {
+        $addressForm = $this->makeAddressForm();
 
-	/**
-	 * Payment step
-	 */
-	protected function _assignPayment()
-	{
-		global $orderTotal;
+        if (Tools::getIsset('id_address') && ($id_address = (int) Tools::getValue('id_address'))) {
+            $addressForm->loadAddressById($id_address);
+        }
 
-		// Redirect instead of displaying payment modules if any module are grefted on
-		Hook::exec('displayBeforePayment', array('module' => 'order.php?step=3'));
+        if (Tools::getIsset('id_country')) {
+            $addressForm->fillWith(['id_country' => Tools::getValue('id_country')]);
+        }
 
-		/* We may need to display an order summary */
-		$this->context->smarty->assign($this->context->cart->getSummaryDetails());
-		$this->context->smarty->assign(array(
-			'total_price' => (float)($orderTotal),
-			'taxes_enabled' => (int)(Configuration::get('PS_TAX'))
-		));
-		$this->context->cart->checkedTOS = '1';
+        $stepTemplateParameters = [];
+        foreach ($this->checkoutProcess->getSteps() as $step) {
+            if ($step instanceof CheckoutAddressesStep) {
+                $stepTemplateParameters = $step->getTemplateParameters();
+            }
+        }
 
-		parent::_assignPayment();
-	}
+        $templateParams = array_merge(
+            $addressForm->getTemplateVariables(),
+            $stepTemplateParameters,
+            ['type' => 'delivery']
+        );
+
+        ob_end_clean();
+        header('Content-Type: application/json');
+
+        $this->ajaxRender(Tools::jsonEncode([
+            'address_form' => $this->render(
+                'checkout/_partials/address-form',
+                $templateParams
+            ),
+        ]));
+    }
 }
-

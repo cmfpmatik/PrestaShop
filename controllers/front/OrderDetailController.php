@@ -1,225 +1,225 @@
 <?php
-/*
-* 2007-2013 PrestaShop
-*
-* NOTICE OF LICENSE
-*
-* This source file is subject to the Open Software License (OSL 3.0)
-* that is bundled with this package in the file LICENSE.txt.
-* It is also available through the world-wide-web at this URL:
-* http://opensource.org/licenses/osl-3.0.php
-* If you did not receive a copy of the license and are unable to
-* obtain it through the world-wide-web, please send an email
-* to license@prestashop.com so we can send you a copy immediately.
-*
-* DISCLAIMER
-*
-* Do not edit or add to this file if you wish to upgrade PrestaShop to newer
-* versions in the future. If you wish to customize PrestaShop for your
-* needs please refer to http://www.prestashop.com for more information.
-*
-*  @author PrestaShop SA <contact@prestashop.com>
-*  @copyright  2007-2013 PrestaShop SA
-*  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
-*  International Registered Trademark & Property of PrestaShop SA
-*/
+/**
+ * Copyright since 2007 PrestaShop SA and Contributors
+ * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.md.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@prestashop.com so we can send you a copy immediately.
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
+ * versions in the future. If you wish to customize PrestaShop for your
+ * needs please refer to https://devdocs.prestashop.com/ for more information.
+ *
+ * @author    PrestaShop SA and Contributors <contact@prestashop.com>
+ * @copyright Since 2007 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
+use PrestaShop\PrestaShop\Adapter\Presenter\Order\OrderPresenter;
 
 class OrderDetailControllerCore extends FrontController
 {
-	public $auth = true;
-	public $authRedirection = 'history';
-	public $ssl = true;
+    public $php_self = 'order-detail';
+    public $auth = true;
+    public $authRedirection = 'history';
+    public $ssl = true;
 
-	/**
-	 * Initialize order detail controller
-	 * @see FrontController::init()
-	 */
-	public function init()
-	{
-		parent::init();
-		header('Cache-Control: no-cache, must-revalidate');
-		header('Expires: Sat, 26 Jul 1997 05:00:00 GMT');
-	}
+    protected $order_to_display;
 
-	/**
-	 * Start forms process
-	 * @see FrontController::postProcess()
-	 */
-	public function postProcess()
-	{
-		if (Tools::isSubmit('submitMessage'))
-		{
-			$idOrder = (int)(Tools::getValue('id_order'));
-			$msgText = Tools::getValue('msgText');
+    protected $reference;
 
-			if (!$idOrder || !Validate::isUnsignedId($idOrder))
-				$this->errors[] = Tools::displayError('The order is no longer valid.');
-			elseif (empty($msgText))
-				$this->errors[] = Tools::displayError('The message cannot be blank.');
-			elseif (!Validate::isMessage($msgText))
-				$this->errors[] = Tools::displayError('This message is invalid (HTML is not allowed).');
-			if (!count($this->errors))
-			{
-				$order = new Order($idOrder);
-				if (Validate::isLoadedObject($order) && $order->id_customer == $this->context->customer->id)
-				{
-					//check if a thread already exist
-					$id_customer_thread = CustomerThread::getIdCustomerThreadByEmailAndIdOrder($this->context->customer->email, $order->id);
+    /**
+     * Start forms process.
+     *
+     * @see FrontController::postProcess()
+     */
+    public function postProcess()
+    {
+        if (Tools::isSubmit('submitMessage')) {
+            $idOrder = (int) Tools::getValue('id_order');
+            $msgText = Tools::getValue('msgText');
 
-					$cm = new CustomerMessage();
-					if (!$id_customer_thread)
-					{
-						$ct = new CustomerThread();
-						$ct->id_contact = 0;
-						$ct->id_customer = (int)$order->id_customer;
-						$ct->id_shop = (int)$this->context->shop->id;
-						if (($id_product = (int)Tools::getValue('id_product')) && $order->orderContainProduct((int)$id_product))
-							$ct->id_product = $id_product;
-						$ct->id_order = (int)$order->id;
-						$ct->id_lang = (int)$this->context->language->id;
-						$ct->email = $this->context->customer->email;
-						$ct->status = 'open';
-						$ct->token = Tools::passwdGen(12);
-						$ct->add();
-					}
-					else
-						$ct = new CustomerThread((int)$id_customer_thread);
-					$cm->id_customer_thread = $ct->id;
-					$cm->message = $msgText;
-					$cm->ip_address = ip2long($_SERVER['REMOTE_ADDR']);
-					$cm->add();
+            if (!$idOrder || !Validate::isUnsignedId($idOrder)) {
+                $this->errors[] = $this->trans('The order is no longer valid.', [], 'Shop.Notifications.Error');
+            } elseif (empty($msgText)) {
+                $this->errors[] = $this->trans('The message cannot be blank.', [], 'Shop.Notifications.Error');
+            } elseif (!Validate::isMessage($msgText)) {
+                $this->errors[] = $this->trans('This message is invalid (HTML is not allowed).', [], 'Shop.Notifications.Error');
+            }
+            if (!count($this->errors)) {
+                $order = new Order($idOrder);
+                if (Validate::isLoadedObject($order) && $order->id_customer == $this->context->customer->id) {
+                    //check if a thread already exist
+                    $id_customer_thread = CustomerThread::getIdCustomerThreadByEmailAndIdOrder($this->context->customer->email, $order->id);
+                    $id_product = (int) Tools::getValue('id_product');
+                    $cm = new CustomerMessage();
+                    if (!$id_customer_thread) {
+                        $ct = new CustomerThread();
+                        $ct->id_contact = 0;
+                        $ct->id_customer = (int) $order->id_customer;
+                        $ct->id_shop = (int) $this->context->shop->id;
+                        if ($id_product && $order->orderContainProduct($id_product)) {
+                            $ct->id_product = $id_product;
+                        }
+                        $ct->id_order = (int) $order->id;
+                        $ct->id_lang = (int) $this->context->language->id;
+                        $ct->email = $this->context->customer->email;
+                        $ct->status = 'open';
+                        $ct->token = Tools::passwdGen(12);
+                        $ct->add();
+                    } else {
+                        $ct = new CustomerThread((int) $id_customer_thread);
+                        $ct->status = 'open';
+                        $ct->update();
+                    }
 
-					if (!Configuration::get('PS_MAIL_EMAIL_MESSAGE'))
-						$to = strval(Configuration::get('PS_SHOP_EMAIL'));
-					else
-					{
-						$to = new Contact((int)(Configuration::get('PS_MAIL_EMAIL_MESSAGE')));
-						$to = strval($to->email);
-					}
-					$toName = strval(Configuration::get('PS_SHOP_NAME'));
-					$customer = $this->context->customer;
+                    $cm->id_customer_thread = $ct->id;
+                    $cm->message = $msgText;
+                    $client_ip_address = Tools::getRemoteAddr();
+                    $cm->ip_address = (int) ip2long($client_ip_address);
+                    $cm->add();
 
-					if (Validate::isLoadedObject($customer))
-						Mail::Send($this->context->language->id, 'order_customer_comment', Mail::l('Message from a customer'),
-						array(
-							'{lastname}' => $customer->lastname,
-							'{firstname}' => $customer->firstname,
-							'{email}' => $customer->email,
-							'{id_order}' => (int)($order->id),
-							'{order_name}' => $order->getUniqReference(),
-							'{message}' => Tools::nl2br($msgText)
-						),
-						$to, $toName, $customer->email, $customer->firstname.' '.$customer->lastname);
+                    if (!Configuration::get('PS_MAIL_EMAIL_MESSAGE')) {
+                        $to = (string) Configuration::get('PS_SHOP_EMAIL');
+                    } else {
+                        $to = new Contact((int) Configuration::get('PS_MAIL_EMAIL_MESSAGE'));
+                        $to = (string) $to->email;
+                    }
+                    $toName = (string) Configuration::get('PS_SHOP_NAME');
+                    $customer = $this->context->customer;
 
-					if (Tools::getValue('ajax') != 'true')
-						Tools::redirect('index.php?controller=order-detail&id_order='.(int)$idOrder);
+                    $product = new Product($id_product);
+                    $product_name = '';
+                    if (Validate::isLoadedObject($product) && isset($product->name[(int) $this->context->language->id])) {
+                        $product_name = $product->name[(int) $this->context->language->id];
+                    }
 
-					$this->context->smarty->assign('message_confirmation', true);
-				}
-				else
-					$this->errors[] = Tools::displayError('Order not found');
-			}
-		}
-	}
+                    if (Validate::isLoadedObject($customer)) {
+                        Mail::Send(
+                            $this->context->language->id,
+                            'order_customer_comment',
+                            $this->trans(
+                                'Message from a customer',
+                                [],
+                                'Emails.Subject'
+                            ),
+                            [
+                                '{lastname}' => $customer->lastname,
+                                '{firstname}' => $customer->firstname,
+                                '{email}' => $customer->email,
+                                '{id_order}' => (int) $order->id,
+                                '{order_name}' => $order->getUniqReference(),
+                                '{message}' => Tools::nl2br($msgText),
+                                '{product_name}' => $product_name,
+                            ],
+                            $to,
+                            $toName,
+                            (string) Configuration::get('PS_SHOP_EMAIL'),
+                            $customer->firstname . ' ' . $customer->lastname,
+                            null,
+                            null,
+                            _PS_MAIL_DIR_,
+                            false,
+                            null,
+                            null,
+                            $customer->email
+                        );
+                    }
 
-	public function displayAjax()
-	{
-		$this->display();
-	}
+                    Tools::redirect('index.php?controller=order-detail&id_order=' . $idOrder . '&messagesent');
+                } else {
+                    $this->redirect_after = '404';
+                    $this->redirect();
+                }
+            }
+        }
+    }
 
-	/**
-	 * Assign template vars related to page content
-	 * @see FrontController::initContent()
-	 */
-	public function initContent()
-	{
-		parent::initContent();
+    /**
+     * Assign template vars related to page content.
+     *
+     * @see FrontController::initContent()
+     */
+    public function initContent()
+    {
+        if (Configuration::isCatalogMode()) {
+            Tools::redirect('index.php');
+        }
 
-		if (!($id_order = (int)Tools::getValue('id_order')) || !Validate::isUnsignedId($id_order))
-			$this->errors[] = Tools::displayError('Order ID required');
-		else
-		{
-			$order = new Order($id_order);
-			if (Validate::isLoadedObject($order) && $order->id_customer == $this->context->customer->id)
-			{
-				$id_order_state = (int)($order->getCurrentState());
-				$carrier = new Carrier((int)($order->id_carrier), (int)($order->id_lang));
-				$addressInvoice = new Address((int)($order->id_address_invoice));
-				$addressDelivery = new Address((int)($order->id_address_delivery));
+        $id_order = (int) Tools::getValue('id_order');
+        $id_order = $id_order && Validate::isUnsignedId($id_order) ? $id_order : false;
 
-				$inv_adr_fields = AddressFormat::getOrderedAddressFields($addressInvoice->id_country);
-				$dlv_adr_fields = AddressFormat::getOrderedAddressFields($addressDelivery->id_country);
+        if (!$id_order) {
+            $reference = Tools::getValue('reference');
+            $reference = $reference && Validate::isReference($reference) ? $reference : false;
+            $order = $reference ? Order::getByReference($reference)->getFirst() : false;
+            $id_order = $order ? $order->id : false;
+        }
 
-				$invoiceAddressFormatedValues = AddressFormat::getFormattedAddressFieldsValues($addressInvoice, $inv_adr_fields);
-				$deliveryAddressFormatedValues = AddressFormat::getFormattedAddressFieldsValues($addressDelivery, $dlv_adr_fields);
+        if (!$id_order) {
+            $this->redirect_after = '404';
+            $this->redirect();
+        } else {
+            if (Tools::getIsset('errorQuantity')) {
+                $this->errors[] = $this->trans('You do not have enough products to request an additional merchandise return.', [], 'Shop.Notifications.Error');
+            } elseif (Tools::getIsset('errorMsg')) {
+                $this->errors[] = $this->trans('Please provide an explanation for your RMA.', [], 'Shop.Notifications.Error');
+            } elseif (Tools::getIsset('errorDetail1')) {
+                $this->errors[] = $this->trans('Please check at least one product you would like to return.', [], 'Shop.Notifications.Error');
+            } elseif (Tools::getIsset('errorDetail2')) {
+                $this->errors[] = $this->trans('For each product you wish to add, please specify the desired quantity.', [], 'Shop.Notifications.Error');
+            } elseif (Tools::getIsset('errorNotReturnable')) {
+                $this->errors[] = $this->trans('This order cannot be returned', [], 'Shop.Notifications.Error');
+            } elseif (Tools::getIsset('messagesent')) {
+                $this->success[] = $this->trans('Message successfully sent', [], 'Shop.Notifications.Success');
+            }
 
-				if ($order->total_discounts > 0)
-					$this->context->smarty->assign('total_old', (float)($order->total_paid - $order->total_discounts));
-				$products = $order->getProducts();
+            $order = new Order($id_order);
+            if (Validate::isLoadedObject($order) && $order->id_customer == $this->context->customer->id) {
+                $this->order_to_display = (new OrderPresenter())->present($order);
 
-				/* DEPRECATED: customizedDatas @since 1.5 */
-				$customizedDatas = Product::getAllCustomizedDatas((int)($order->id_cart));
-				Product::addCustomizationPrice($products, $customizedDatas);
+                $this->reference = $order->reference;
 
-				OrderReturn::addReturnedQuantity($products, $order->id);
+                $this->context->smarty->assign([
+                    'order' => $this->order_to_display,
+                    'HOOK_DISPLAYORDERDETAIL' => Hook::exec('displayOrderDetail', ['order' => $order]),
+                ]);
+            } else {
+                $this->redirect_after = '404';
+                $this->redirect();
+            }
+            unset($order);
+        }
 
-				$customer = new Customer($order->id_customer);
+        parent::initContent();
+        $this->setTemplate('customer/order-detail');
+    }
 
-				$this->context->smarty->assign(array(
-					'shop_name' => strval(Configuration::get('PS_SHOP_NAME')),
-					'order' => $order,
-					'return_allowed' => (int)($order->isReturnable()),
-					'currency' => new Currency($order->id_currency),
-					'order_state' => (int)($id_order_state),
-					'invoiceAllowed' => (int)(Configuration::get('PS_INVOICE')),
-					'invoice' => (OrderState::invoiceAvailable($id_order_state) && count($order->getInvoicesCollection())),
-					'order_history' => $order->getHistory($this->context->language->id, false, true),
-					'products' => $products,
-					'discounts' => $order->getCartRules(),
-					'carrier' => $carrier,
-					'address_invoice' => $addressInvoice,
-					'invoiceState' => (Validate::isLoadedObject($addressInvoice) && $addressInvoice->id_state) ? new State($addressInvoice->id_state) : false,
-					'address_delivery' => $addressDelivery,
-					'inv_adr_fields' => $inv_adr_fields,
-					'dlv_adr_fields' => $dlv_adr_fields,
-					'invoiceAddressFormatedValues' => $invoiceAddressFormatedValues,
-					'deliveryAddressFormatedValues' => $deliveryAddressFormatedValues,
-					'deliveryState' => (Validate::isLoadedObject($addressDelivery) && $addressDelivery->id_state) ? new State($addressDelivery->id_state) : false,
-					'is_guest' => false,
-					'messages' => CustomerMessage::getMessagesByOrderId((int)($order->id), false),
-					'CUSTOMIZE_FILE' => Product::CUSTOMIZE_FILE,
-					'CUSTOMIZE_TEXTFIELD' => Product::CUSTOMIZE_TEXTFIELD,
-					'isRecyclable' => Configuration::get('PS_RECYCLABLE_PACK'),
-					'use_tax' => Configuration::get('PS_TAX'),
-					'group_use_tax' => (Group::getPriceDisplayMethod($customer->id_default_group) == PS_TAX_INC),
-					/* DEPRECATED: customizedDatas @since 1.5 */
-					'customizedDatas' => $customizedDatas
-					/* DEPRECATED: customizedDatas @since 1.5 */
-				));
+    public function getBreadcrumbLinks()
+    {
+        $breadcrumb = parent::getBreadcrumbLinks();
 
-				if ($carrier->url && $order->shipping_number)
-					$this->context->smarty->assign('followup', str_replace('@', $order->shipping_number, $carrier->url));
-				$this->context->smarty->assign('HOOK_ORDERDETAILDISPLAYED', Hook::exec('displayOrderDetail', array('order' => $order)));
-				Hook::exec('actionOrderDetail', array('carrier' => $carrier, 'order' => $order));
+        $breadcrumb['links'][] = $this->addMyAccountToBreadcrumb();
+        $breadcrumb['links'][] = [
+            'title' => $this->trans('Order history', [], 'Shop.Theme.Customeraccount'),
+            'url' => $this->context->link->getPageLink('history'),
+        ];
 
-				unset($carrier, $addressInvoice, $addressDelivery);
-			}
-			else
-				$this->errors[] = Tools::displayError('This order cannot be found.');
-			unset($order);
-		}
+        if (!empty($this->reference)) {
+            $breadcrumb['links'][] = [
+                'title' => $this->reference,
+                'url' => '#',
+            ];
+        }
 
-		$this->setTemplate(_PS_THEME_DIR_.'order-detail.tpl');
-	}
-
-	public function setMedia()
-	{
-		if (Tools::getValue('ajax') != 'true')
-		{
-			parent::setMedia();
-			$this->addCSS(_THEME_CSS_DIR_.'history.css');
-			$this->addCSS(_THEME_CSS_DIR_.'addresses.css');
-		}
-	}
+        return $breadcrumb;
+    }
 }
-

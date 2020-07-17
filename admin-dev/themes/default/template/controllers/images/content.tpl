@@ -1,62 +1,98 @@
-{*
-* 2007-2013 PrestaShop
-*
-* NOTICE OF LICENSE
-*
-* This source file is subject to the Academic Free License (AFL 3.0)
-* that is bundled with this package in the file LICENSE.txt.
-* It is also available through the world-wide-web at this URL:
-* http://opensource.org/licenses/afl-3.0.php
-* If you did not receive a copy of the license and are unable to
-* obtain it through the world-wide-web, please send an email
-* to license@prestashop.com so we can send you a copy immediately.
-*
-* DISCLAIMER
-*
-* Do not edit or add to this file if you wish to upgrade PrestaShop to newer
-* versions in the future. If you wish to customize PrestaShop for your
-* needs please refer to http://www.prestashop.com for more information.
-*
-*  @author PrestaShop SA <contact@prestashop.com>
-*  @copyright  2007-2013 PrestaShop SA
-*  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
-*  International Registered Trademark & Property of PrestaShop SA
-*}
+{**
+ * Copyright since 2007 PrestaShop SA and Contributors
+ * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.md.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@prestashop.com so we can send you a copy immediately.
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
+ * versions in the future. If you wish to customize PrestaShop for your
+ * needs please refer to https://devdocs.prestashop.com/ for more information.
+ *
+ * @author    PrestaShop SA and Contributors <contact@prestashop.com>
+ * @copyright Since 2007 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ *}
 
-{$content}
+<div class="alert alert-danger">
+	{l s='By default, all images settings are already installed in your store. Do not delete them, you will need it!' d='Admin.Design.Help'}
+</div>
+
+{if isset($content)}
+	{$content}
+{/if}
+
+{if isset($display_move) && $display_move}
+    <form action="{$current|escape:'html':'UTF-8'}&amp;token={$token|escape:'html':'UTF-8'}" method="post" class="form-horizontal">
+        <div class="panel">
+            <h3>
+                <i class="icon-picture"></i>
+                {l s='Move images' d='Admin.Design.Feature'}
+            </h3>
+            <div class="alert alert-warning">
+                <p>{l s='You can choose to keep your images stored in the previous system. There\'s nothing wrong with that.' d='Admin.Design.Notification'}</p>
+                <p>{l s='You can also decide to move your images to the new storage system. In this case, click on the "%move_images_label%" button below. Please be patient. This can take several minutes.' d='Admin.Design.Notification' sprintf=['%move_images_label%' => {l s='Move images' d='Admin.Design.Feature'}]}</p>
+            </div>
+            <div class="alert alert-info">&nbsp;
+                {l s='After moving all of your product images, set the "Use the legacy image filesystem" option above to "No" for best performance.' d='Admin.Design.Notification'}
+            </div>
+            <div class="row">
+                <div class="col-lg-12 pull-right">
+                    <button type="submit" name="submitMoveImages{$table}" class="btn btn-default pull-right" onclick="return confirm('{l s='Are you sure?' d='Admin.Notifications.Warning'}');"><i class="process-icon-cogs"></i> {l s='Move images' d='Admin.Design.Feature'}</button>
+                </div>
+            </div>
+        </div>
+    </form>
+{/if}
 
 {if isset($display_regenerate)}
-	<h2 class="space">{l s='Regenerate thumbnails'}</h2>
-	{l s='Regenerates thumbnails for all existing images'}<br /><br />
-	<div  class="width4">
-		<div class="warn">
-			{l s='Please be patient. This can take several minutes.'}<br />
-			{l s='Be careful! Manually uploaded thumbnails will be erased and replaced by automatically generated thumbnails.'}
-		</div>
-	</div>
-	<form action="{$current}&token={$token}" method="post">
-		<fieldset class="width4">
-			<legend><img src="../img/admin/picture.gif" /> {l s='Regenerate thumbnails'}</legend><br />
-			<label>{l s='Select an image'}</label>
-			<div class="margin-form">
-				<select name="type" onchange="changeFormat(this)">
-					<option value="all">{l s='All'}</option>
-					{foreach $types AS $k => $type}
-						<option value="{$k}">{$type}</option>
-					{/foreach}
-				</select>
+
+	<form class="form-horizontal" action="{$current|escape:'html':'UTF-8'}&amp;token={$token|escape:'html':'UTF-8'}" method="post">
+		<div class="panel">
+			<h3>
+                <i class="icon-picture"></i>
+                {l s='Regenerate thumbnails' d='Admin.Design.Feature'}
+            </h3>
+
+			<div class="alert alert-info">
+				{l s='Regenerates thumbnails for all existing images' d='Admin.Design.Help'}<br />
+				{l s='Please be patient. This can take several minutes.' d='Admin.Design.Help'}<br />
+				{l s='Be careful! Manually uploaded thumbnails will be erased and replaced by automatically generated thumbnails.' d='Admin.Design.Help'}
+			</div>
+
+			<div class="form-group">
+				<label class="control-label col-lg-3">{l s='Select an image' d='Admin.Design.Feature'}</label>
+				<div class="col-lg-9">
+					<select name="type" onchange="changeFormat(this)">
+						<option value="all">{l s='All' d='Admin.Global'}</option>
+						{foreach $types AS $k => $type}
+							<option value="{$k}">{$type}</option>
+						{/foreach}
+					</select>
+				</div>
 			</div>
 
 			{foreach $types AS $k => $type}
-				<label class="second-select format_{$k}" style="display:none;">{l s='Select a format'}</label>
-				<div class="second-select margin-form format_{$k}" style="display:none;">
-					<select class="second-select format_{$k}" name="format_{$k}">
-						<option value="all">{l s='All'}</option>
+			<div class="form-group second-select format_{$k}" style="display:none;">
+				<label class="control-label col-lg-3">{l s='Select a format' d='Admin.Design.Feature'}</label>
+				<div class="col-lg-9 margin-form">
+					<select name="format_{$k}">
+						<option value="all">{l s='All' d='Admin.Global'}</option>
 						{foreach $formats[$k] AS $format}
 							<option value="{$format['id_image_type']}">{$format['name']}</option>
 						{/foreach}
 					</select>
 				</div>
+			</div>
 			{/foreach}
 			<script>
 				function changeFormat(elt)
@@ -65,37 +101,33 @@
 					$('.format_' + $(elt).val()).show();
 				{rdelim}
 			</script>
-			<label>{l s='Erase previous images'}</label>
-			<div class="margin-form">
-				<input name="erase" type="checkbox" value="1" checked="checked" />
-				<p>{l s='Deselect this checkbox only if your server timed out and you need to resume the regeneration.'}</p>
-			</div>
-			<div class="clear"></div>
-			<center><input type="Submit" name="submitRegenerate{$table}" value="{l s='Regenerate thumbnails'}" class="button space" onclick="return confirm('{l s='Are you sure?'}');" /></center>
-		</fieldset>
-	</form>
-{/if}
 
-{if isset($display_move) && $display_move}
-	<br /><h2 class="space">{l s='Move images'}</h2>
-	{l s='PrestaShop now uses a new storage system for product images. It offers better performance if your shop has a large number of products.'}<br />
-	<br />
-	{if $safe_mode}
-		<div class="warn">
-			{l s='PrestaShop has detected that your server configuration is not compatible with the new storage system (directive "safe_mode" is activated). You should therefore continue to use the existing system.'}
-		</div>
-	{else}
-		<form action="{$current}&token={$token}" method="post">
-			<fieldset class="width4">
-				<legend><img src="../img/admin/picture.gif" /> {l s='Move images'}</legend><br />
-				{l s='You can choose to keep your images stored in the previous system. There\'s nothing wrong with that.'}<br />
-				{l s='You can also decide to move your images to the new storage system. In this case, click on the "Move images" button below. Please be patient. This can take several minutes.'}
-				<br /><br />
-				<div class="hint clear" style="display: block;">&nbsp;
-					{l s='After moving all of your product images, set the "Use the legacy image filesystem" option above to "No" for best performance.'}
+			<div class="form-group">
+				<label class="control-label col-lg-3">
+					{l s='Erase previous images' d='Admin.Design.Feature'}
+				</label>
+				<div class="col-lg-9">
+					<span class="switch prestashop-switch fixed-width-lg">
+						<input type="radio" name="erase" id="erase_on" value="1" checked="checked">
+						<label for="erase_on" class="radioCheck">
+							{l s='Yes' d='Admin.Global'}
+						</label>
+						<input type="radio" name="erase" id="erase_off" value="0">
+						<label for="erase_off" class="radioCheck">
+							{l s='No' d='Admin.Global'}
+						</label>
+						<a class="slide-button btn"></a>
+					</span>
+					<p class="help-block">
+						{l s='Select "No" only if your server timed out and you need to resume the regeneration.' html=1 d='Admin.Design.Help'}
+					</p>
 				</div>
-				<center><input type="Submit" name="submitMoveImages{$table}" value="{l s='Move images'}" class="button space" onclick="return confirm('{l s='Are you sure?'}');" /></center>
-			</fieldset>
-		</form>
-	{/if}
+			</div>
+			<div class="panel-footer">
+				<button type="submit" name="submitRegenerate{$table}" class="btn btn-default pull-right" onclick="return confirm('{l s='Are you sure?' d='Admin.Notifications.Warning'}');">
+					<i class="process-icon-cogs"></i> {l s='Regenerate thumbnails' d='Admin.Design.Feature'}
+				</button>
+			</div>
+		</div>
+	</form>
 {/if}

@@ -1,90 +1,91 @@
-{*
-* 2007-2013 PrestaShop
-*
-* NOTICE OF LICENSE
-*
-* This source file is subject to the Academic Free License (AFL 3.0)
-* that is bundled with this package in the file LICENSE.txt.
-* It is also available through the world-wide-web at this URL:
-* http://opensource.org/licenses/afl-3.0.php
-* If you did not receive a copy of the license and are unable to
-* obtain it through the world-wide-web, please send an email
-* to license@prestashop.com so we can send you a copy immediately.
-*
-* DISCLAIMER
-*
-* Do not edit or add to this file if you wish to upgrade PrestaShop to newer
-* versions in the future. If you wish to customize PrestaShop for your
-* needs please refer to http://www.prestashop.com for more information.
-*
-*  @author PrestaShop SA <contact@prestashop.com>
-*  @copyright  2007-2013 PrestaShop SA
-*  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
-*  International Registered Trademark & Property of PrestaShop SA
-*}
+{**
+ * Copyright since 2007 PrestaShop SA and Contributors
+ * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.md.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@prestashop.com so we can send you a copy immediately.
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
+ * versions in the future. If you wish to customize PrestaShop for your
+ * needs please refer to https://devdocs.prestashop.com/ for more information.
+ *
+ * @author    PrestaShop SA and Contributors <contact@prestashop.com>
+ * @copyright Since 2007 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ *}
 {if isset($json)}
+{strip}
 {
-	"status" : "{$status}",
-	"confirmations" : {$confirmations},
-	"informations" : {$informations},
-	"error" : {$errors},
-	"warnings" : {$warnings},
-	"content" : {$page}
+{if isset($status) && is_string($status) && trim($status) != ''}{assign 'hasresult' 'ok'}"status" : "{$status}"{/if}
+{if !empty($confirmations)}{if $hasresult == 'ok'},{/if}{assign 'hasresult' 'ok'}"confirmations" : {$confirmations}{/if}
+{if !empty($informations)}{if $hasresult == 'ok'},{/if}{assign 'hasresult' 'ok'}"informations" : {$informations}{/if}
+{if !empty($errors)}{if $hasresult == 'ok'},{/if}{assign 'hasresult' 'ok'}"error" : {$errors}{/if}
+{if !empty($warnings)}{if $hasresult == 'ok'},{/if}{assign 'hasresult' 'ok'}"warnings" : {$warnings}{/if}
+{if $hasresult == 'ok'},{/if}{assign 'hasresult' 'ok'}"content" : {$page}
 }
+{/strip}
 {else}
-
 	{if isset($conf)}
-		<div class="conf">
+		<div class="alert alert-success">
 			{$conf}
 		</div>
 	{/if}
 
-	{if count($errors)} {* @todo what is ??? AND $this->_includeContainer *}
-		<div class="error">
-			<span style="float:right"><a id="hideError" href=""><img alt="X" src="../img/admin/close.png" /></a></span>
+	{if count($errors)}
+		<div class="alert alert-danger">
+			<button type="button" class="close" data-dismiss="alert">&times;</button>
 			{if count($errors) == 1}
 				{$errors[0]}
 			{else}
-				{l s='%d errors' sprintf=$errors|count}
+				{l s='There are %d errors.' sprintf=[$errors|count] d='Admin.Notifications.Error'}
 				<br/>
-				<ol>
+				<ul>
 					{foreach $errors AS $error}
 						<li>{$error}</li>
 					{/foreach}
-				</ol>
+				</ul>
 			{/if}
 		</div>
 	{/if}
 
 	{if isset($informations) && count($informations) && $informations}
-		<div class="hint clear" style="display:block;">
+		<div class="alert alert-info" style="display:block;">
+			<button type="button" class="close" data-dismiss="alert">&times;</button>
 			{foreach $informations as $info}
-				{$info}<br />
+				{$info}<br/>
 			{/foreach}
-		</div><br />
+		</div>
 	{/if}
 
 	{if isset($confirmations) && count($confirmations) && $confirmations}
-		<div class="conf" style="display:block;">
+		<div class="alert alert-success" style="display:block;">
+			<button type="button" class="close" data-dismiss="alert">&times;</button>
 			{foreach $confirmations as $confirm}
 				{$confirm}<br />
 			{/foreach}
-		</div><br />
+		</div>
 	{/if}
 
 	{if count($warnings)}
-		<div class="warn">
-			<span style="float:right">
-				<a id="hideWarn" href=""><img alt="X" src="../img/admin/close.png" /></a>
-			</span>
+		<div class="alert alert-warning">
+			<button type="button" class="close" data-dismiss="alert">&times;</button>
 			{if count($warnings) > 1}
-				{l s='There are %d warnings.' sprintf=count($warnings)}
+				{l s='There are %d warnings.' sprintf=count($warnings) d='Admin.Notifications.Error'}
 				<span style="margin-left:20px;" id="labelSeeMore">
-					<a id="linkSeeMore" href="#" style="text-decoration:underline">{l s='Click here to see more'}</a>
-					<a id="linkHide" href="#" style="text-decoration:underline;display:none">{l s='Hide warning'}</a>
+					<a id="linkSeeMore" href="#" style="text-decoration:underline">{l s='See more' d='Admin.Actions'}</a>
+					<a id="linkHide" href="#" style="text-decoration:underline;display:none">{l s='Hide warning' d='Admin.Actions'}</a>
 				</span>
 			{else}
-				{l s='There is %d warning.' sprintf=count($warnings)}
+				{l s='There are %d warnings.' sprintf=count($warnings) d='Admin.Notifications.Error'}
 			{/if}
 			<ul style="display:{if count($warnings) > 1}none{else}block{/if};" id="seeMore">
 			{foreach $warnings as $warning}

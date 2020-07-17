@@ -1,41 +1,44 @@
-{*
-* 2007-2013 PrestaShop
-*
-* NOTICE OF LICENSE
-*
-* This source file is subject to the Academic Free License (AFL 3.0)
-* that is bundled with this package in the file LICENSE.txt.
-* It is also available through the world-wide-web at this URL:
-* http://opensource.org/licenses/afl-3.0.php
-* If you did not receive a copy of the license and are unable to
-* obtain it through the world-wide-web, please send an email
-* to license@prestashop.com so we can send you a copy immediately.
-*
-* DISCLAIMER
-*
-* Do not edit or add to this file if you wish to upgrade PrestaShop to newer
-* versions in the future. If you wish to customize PrestaShop for your
-* needs please refer to http://www.prestashop.com for more information.
-*
-*  @author PrestaShop SA <contact@prestashop.com>
-*  @copyright  2007-2013 PrestaShop SA
-
-*  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
-*  International Registered Trademark & Property of PrestaShop SA
-*}
+{**
+ * Copyright since 2007 PrestaShop SA and Contributors
+ * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.md.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@prestashop.com so we can send you a copy immediately.
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
+ * versions in the future. If you wish to customize PrestaShop for your
+ * needs please refer to https://devdocs.prestashop.com/ for more information.
+ *
+ * @author    PrestaShop SA and Contributors <contact@prestashop.com>
+ * @copyright Since 2007 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ *}
 
 <script type="text/javascript">{$autocompleteList}</script>
 <script type="text/javascript">
-	var token = '{$token}';
-	var currentIndex = '{$currentIndex}';
-	var currentIndexWithToken = '{$currentIndex}&token={$token}';
+    var header_confirm_reset = '{l s='Confirm reset'}';
+    var body_confirm_reset = '{l s='Would you like to delete the content related to this module ?'}';
+    var left_button_confirm_reset = '{l s='No - reset only the parameters'}';
+    var right_button_confirm_reset = '{l s='Yes - reset everything'}';
+	var currentIndex = '{$currentIndex|escape:'html':'UTF-8'}';
+	var currentIndexWithToken = '{$currentIndex|escape:'html':'UTF-8'}&token={$token|escape:'html':'UTF-8'}';
 	var dirNameCurrentIndex = '{$dirNameCurrentIndex}';
 	var ajaxCurrentIndex = '{$ajaxCurrentIndex}';
 	var installed_modules = {if isset($installed_modules) && count($installed_modules)}{$installed_modules}{else}false{/if};
 	var by = '{l s='by'}';
-	var errorLogin = '{l s='PrestaShop was unable to login to Addons. Please check your credentials and your internet connection.'}';
 	var confirmPreferencesSaved = '{l s='Preferences saved'}';
 	{if isset($smarty.get.anchor) && !isset($error_module)}var anchor = '{$smarty.get.anchor|htmlentities|replace:'(':''|replace:')':''|replace:'{':''|replace:'}':''|replace:'\'':''|replace:'/':''}';{else}var anchor = '';{/if}
+
+	{if isset($smarty.get.module_name) && !isset($error_module) && (!isset($dont_filter) || !$dont_filter)}var module_name = '{$smarty.get.module_name|htmlentities|replace:'(':''|replace:')':''|replace:'{':''|replace:'}':''|replace:'\'':''|replace:'/':''}';{else}var module_name = '';{/if}
 
 	{literal}
 
@@ -49,7 +52,7 @@
 		{
 			if (modules[i].checked == true)
 			{
-				rel = modules[i].getAttribute('rel');
+				rel = modules[i].getAttribute('data-rel');
 				if (rel != "false" && action == "uninstall")
 				{
 					if (!confirm(rel))
@@ -64,30 +67,39 @@
 	$('document').ready( function() {
 		// ScrollTo
 		if (anchor != '')
-			$.scrollTo('#'+anchor, 1200, {offset: -100});
+			$.uiTableFilter($('#moduleContainer').find('table'), anchor);
 
-		// AutoComplete Search
-		$('input[name="filtername"]').autocomplete(moduleList, {
-			minChars: 0,
-			width: 310,
-			matchContains: true,
-			highlightItem: true,
-			formatItem: function(row, i, max, term) {
-				var image = '../modules/'+row.name+'/logo.gif';
-				if (row.image != '')
-					image = row.image;
-				return '<img src="'+image+'" style="float:left;margin:5px;width:16px;height:16px"><strong>'+row.displayName+'</strong>'+((row.author != '') ? ' ' + by + ' ' + truncate_author(row.author) : '') + '<br /><span style="font-size: 80%;">'+ row.desc +'</span><br/><div style="height:15px;padding-top:5px">'+ row.option +'</div>';
-			},
-			formatResult: function(row) {
-				return row.displayName;
-			}
+		if (module_name != '')
+			$.uiTableFilter($('#moduleContainer').find('table'), module_name);
+
+		$('#moduleQuicksearch').on('keyup', function(){
+			val = this.value;
+			if ($('#filter_all').hasClass('active'))
+				$.uiTableFilter($('#moduleContainer').find('table'), val);
+			else
+				$('#filter_all').trigger('click');
+				var interval = setInterval(function () {
+				if (!$('#loader_module_list').length)
+				{
+					$.uiTableFilter($('#moduleContainer').find('table'), val);
+					clearInterval(interval);
+					interval = null;
+				}
+
+		}, 100);
+
+
+		}).on('keydown', function(e){
+			if (e.keyCode == 13)
+				return false;
 		});
+
 		$('input[name="filtername"]').result(function(event, data, formatted) {
 			$('#filternameForm').submit();
 		});
 
 		// Method to check / uncheck all modules checkbox
-		$('#checkme').click(function()
+		$('#moduleContainer').on("click", "#checkme", function()
 		{
 			if ($(this).attr("rel") == 'false')
 			{
@@ -101,20 +113,23 @@
 				$(this).attr("rel", "false");
 				$("input[name=modules]").removeAttr("checked");
 			}
-		});		
+		});
 
 		// Method to reload filter in ajax
 		$('.categoryModuleFilterLink').click(function()
 		{
-			$('.categoryModuleFilterLink').css('background-color', 'white');
-			$(this).css('background-color', '#EBEDF4');
-			var ajaxReloadCurrentIndex = $(this).find('a').attr('href').replace('index.php', 'ajax-tab.php');
+			if ($(this).hasClass('active'))
+				return false;
+			$('.categoryModuleFilterLink').removeClass('active');
+			$(this).addClass('active');
 			try
 			{
 				resAjax = $.ajax({
 					type:"POST",
-					url : ajaxReloadCurrentIndex,
+					url : $(this).attr('href')+'&rand=' + new Date().getTime(),
+					headers: {"cache-control": "no-cache"},
 					async: true,
+					cache: false,
 					data : {
 						ajax : "1",
 						token : token,
@@ -122,10 +137,15 @@
 						action : "reloadModulesList"
 					},
 					beforeSend: function(xhr){
-						$('#moduleContainer').html('<img src="../img/loader.gif" alt="" border="0" />');
+						$('#moduleContainer').html('<img id="loader_module_list" src="../img/loader.gif" alt="" border="0" />');
 					},
-					success: function(data){
+					success: function(data, status, request){
+						if (request.getResponseHeader('Login') === 'true')
+							return window.location.reload();
+
 						$('#moduleContainer').html(data);
+						$('.dropdown-toggle').dropdown();
+						$('.help-tooltip').tooltip();
 					}
 				});
 			}
@@ -139,7 +159,9 @@
 			resAjax = $.ajax({
 				type:"POST",
 				url: ajaxCurrentIndex,
+				headers: {"cache-control": "no-cache"},
 				async: true,
+				cache: false,
 				data: {
 					ajaxMode : "1",
 					ajax : "1",
@@ -154,78 +176,6 @@
 			});
 		}
 		catch(e) { }
-
-		// Method to log on PrestaShop Addons WebServices
-		$('#addons_login_button').click(function()
-		{
-			var username_addons = $("#username_addons").val();
-			var password_addons = $("#password_addons").val();
-			try
-			{
-				resAjax = $.ajax({
-					type:"POST",
-					url : ajaxCurrentIndex,
-					async: true,
-					data : {
-						ajax : "1",
-						token : token,
-						controller : "AdminModules",
-						action : "logOnAddonsWebservices",
-						username_addons : username_addons,
-						password_addons : password_addons
-					},
-					beforeSend: function(xhr){
-						$('#addons_loading').html('<img src="../img/loader.gif" alt="" border="0" />');
-					},
-					success : function(data){
-						if (data == 'OK')
-						{
-							$('#addons_loading').html('');
-							$('#addons_login_div').fadeOut();
-							window.location.href = currentIndexWithToken;
-						}
-						else
-							$('#addons_loading').html(errorLogin);
-					}
-				});
-			}
-			catch(e){}
-			return false;
-		});
-
-		// Method to log out PrestaShop Addons WebServices
-		$('#addons_logout_button').click(function()
-		{
-			try
-			{
-				resAjax = $.ajax({
-					type:"POST",
-					url : ajaxCurrentIndex,
-					async: true,
-					data : {
-						ajax : "1",
-						token : token,
-						controller : "AdminModules",
-						action : "logOutAddonsWebservices"
-					},
-					beforeSend: function(xhr){
-						$('#addons_loading').html('<img src="../img/loader.gif" alt="" border="0" />');
-					},
-					success: function(data) {
-						if (data == 'OK')
-						{
-							$('#addons_loading').html('');
-							$('#addons_login_div').fadeOut();
-							window.location.href = currentIndexWithToken;
-						}
-						else
-							$('#addons_loading').html(errorLogin);
-					}
-				});
-			}
-			catch(e){}
-			return false;
-		});
 
 		// Method to set filter on modules
 		function setFilter()
@@ -260,13 +210,13 @@
 			catch(e){}
 			return false;
 		}
-		$('#module_type_filter').change(function() { setFilter(); });
-		$('#module_install_filter').change(function() { setFilter(); });
-		$('#module_status_filter').change(function() { setFilter(); });
-		$('#country_module_value_filter').change(function() { setFilter(); });
+
+		$(document).on('change', '#module_type_filter, #module_install_filter, #module_status_filter, #country_module_value_filter', function() {
+			setFilter();
+		});
 
 		$('.moduleTabPreferencesChoise').change(function()
-		{			
+		{
 			var value_pref = $(this).val();
 			var module_pref = $(this).attr('name');
 			module_pref = module_pref.substring(2, module_pref.length);
@@ -285,11 +235,11 @@
 				},
 				success : function(data){
 					if (data == 'OK')
-						$('#r_' + module_pref).html(confirmPreferencesSaved);
+						showSuccessMessage(confirmPreferencesSaved);
 				}
 			});
 		});
-		
+
 		// Method to save favorites preferences
 		$('.moduleFavorite').change(function()
 		{
@@ -314,20 +264,22 @@
 					},
 					success : function(data){
 						if (data == 'OK')
-							$('#r_' + module_pref).html(confirmPreferencesSaved);
+							showSuccessMessage(confirmPreferencesSaved);
 					}
 				});
 			}
 			catch(e){}
 			return false;
 		});
-		
-		$('.toggle_favorite').live('click', function(event)
+
+		$('#moduleContainer').on("click", ".toggle_favorite", function()
 	    {
 	      var el = $(this);
 	      var value_pref = el.data('value');
 	      var module_pref = el.data('module');
 	      var action_pref = 'f';
+	      var total_favorites = parseInt($('#favorite-count').html());
+
 	      try
 	      {
 	        resAjax = $.ajax({
@@ -348,9 +300,15 @@
 	              // res.status  = cache or refresh
 	              if (data == 'OK')
 	              {
-	                el.parent('div').find('.toggle_favorite').toggle();
+	                el.toggle();
+	                el.parent('li').siblings().find('a.toggle_favorite').toggle();
+
+					if (value_pref)
+						$('#favorite-count').html(total_favorites+1);
+					else
+						$('#favorite-count').html(total_favorites-1);
 	              }
-	                
+
 	            },
 	            error: function(res,textStatus,jqXHR)
 	            {

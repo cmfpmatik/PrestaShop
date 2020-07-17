@@ -1,73 +1,99 @@
 <?php
-/*
-* 2007-2013 PrestaShop
-*
-* NOTICE OF LICENSE
-*
-* This source file is subject to the Open Software License (OSL 3.0)
-* that is bundled with this package in the file LICENSE.txt.
-* It is also available through the world-wide-web at this URL:
-* http://opensource.org/licenses/osl-3.0.php
-* If you did not receive a copy of the license and are unable to
-* obtain it through the world-wide-web, please send an email
-* to license@prestashop.com so we can send you a copy immediately.
-*
-* DISCLAIMER
-*
-* Do not edit or add to this file if you wish to upgrade PrestaShop to newer
-* versions in the future. If you wish to customize PrestaShop for your
-* needs please refer to http://www.prestashop.com for more information.
-*
-*  @author PrestaShop SA <contact@prestashop.com>
-*  @copyright  2007-2013 PrestaShop SA
-*  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
-*  International Registered Trademark & Property of PrestaShop SA
-*/
+/**
+ * Copyright since 2007 PrestaShop SA and Contributors
+ * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.md.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@prestashop.com so we can send you a copy immediately.
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
+ * versions in the future. If you wish to customize PrestaShop for your
+ * needs please refer to https://devdocs.prestashop.com/ for more information.
+ *
+ * @author    PrestaShop SA and Contributors <contact@prestashop.com>
+ * @copyright Since 2007 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 
 /**
+ * Class GenderCore.
+ *
  * @since 1.5.0
  */
 class GenderCore extends ObjectModel
 {
-	public $id_gender;
-	public $name;
-	public $type;
+    public $id;
+    public $id_gender;
+    public $name;
+    public $type;
 
-	/**
-	 * @see ObjectModel::$definition
-	 */
-	public static $definition = array(
-		'table' => 'gender',
-		'primary' => 'id_gender',
-		'multilang' => true,
-		'fields' => array(
-			'type' => array('type' => self::TYPE_INT, 'required' => true),
+    /**
+     * @see ObjectModel::$definition
+     */
+    public static $definition = [
+        'table' => 'gender',
+        'primary' => 'id_gender',
+        'multilang' => true,
+        'fields' => [
+            'type' => ['type' => self::TYPE_INT, 'required' => true],
 
-			// Lang fields
-			'name' => array('type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isString', 'required' => true, 'size' => 20),
-		),
-	);
+            /* Lang fields */
+            'name' => ['type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isString', 'required' => true, 'size' => 20],
+        ],
+    ];
 
-	public function __construct($id = null, $id_lang = null, $id_shop = null)
-	{
-		parent::__construct($id, $id_lang, $id_shop);
+    /**
+     * GenderCore constructor.
+     *
+     * @param int|null $id
+     * @param int|null $idLang
+     * @param int|null $idShop
+     */
+    public function __construct($id = null, $idLang = null, $idShop = null)
+    {
+        parent::__construct($id, $idLang, $idShop);
 
-		$this->image_dir = _PS_GENDERS_DIR_;
-	}
+        $this->image_dir = _PS_GENDERS_DIR_;
+    }
 
-	public static function getGenders($id_lang = null)
-	{
-		if (is_null($id_lang))
-			$id_lang = Context::getContext()->language->id;
+    /**
+     * Get all Genders.
+     *
+     * @param int|null $idLang Language ID
+     *
+     * @return PrestaShopCollection
+     */
+    public static function getGenders($idLang = null)
+    {
+        if (null === $idLang) {
+            $idLang = Context::getContext()->language->id;
+        }
 
-		$genders = new Collection('Gender', $id_lang);
-		return $genders;
-	}
+        $genders = new PrestaShopCollection('Gender', $idLang);
 
-	public function getImage($use_unknown = false)
-	{
-		if (!isset($this->id) || empty($this->id) || !file_exists(_PS_GENDERS_DIR_.$this->id.'.jpg'))
-			return _THEME_GENDERS_DIR_.'Unknown.jpg';
-		return _THEME_GENDERS_DIR_.$this->id.'.jpg';
-	}
+        return $genders;
+    }
+
+    /**
+     * Get Gender image.
+     *
+     * @return string File path
+     */
+    public function getImage()
+    {
+        if (!isset($this->id) || empty($this->id) || !file_exists(_PS_GENDERS_DIR_ . $this->id . '.jpg')) {
+            return _THEME_GENDERS_DIR_ . 'Unknown.jpg';
+        }
+
+        return _THEME_GENDERS_DIR_ . $this->id . '.jpg';
+    }
 }

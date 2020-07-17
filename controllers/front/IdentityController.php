@@ -1,147 +1,92 @@
 <?php
-/*
-* 2007-2013 PrestaShop
-*
-* NOTICE OF LICENSE
-*
-* This source file is subject to the Open Software License (OSL 3.0)
-* that is bundled with this package in the file LICENSE.txt.
-* It is also available through the world-wide-web at this URL:
-* http://opensource.org/licenses/osl-3.0.php
-* If you did not receive a copy of the license and are unable to
-* obtain it through the world-wide-web, please send an email
-* to license@prestashop.com so we can send you a copy immediately.
-*
-* DISCLAIMER
-*
-* Do not edit or add to this file if you wish to upgrade PrestaShop to newer
-* versions in the future. If you wish to customize PrestaShop for your
-* needs please refer to http://www.prestashop.com for more information.
-*
-*  @author PrestaShop SA <contact@prestashop.com>
-*  @copyright  2007-2013 PrestaShop SA
-*  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
-*  International Registered Trademark & Property of PrestaShop SA
-*/
-
+/**
+ * Copyright since 2007 PrestaShop SA and Contributors
+ * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.md.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@prestashop.com so we can send you a copy immediately.
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
+ * versions in the future. If you wish to customize PrestaShop for your
+ * needs please refer to https://devdocs.prestashop.com/ for more information.
+ *
+ * @author    PrestaShop SA and Contributors <contact@prestashop.com>
+ * @copyright Since 2007 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 class IdentityControllerCore extends FrontController
 {
-	public $auth = true;
-	public $php_self = 'identity';
-	public $authRedirection = 'identity';
-	public $ssl = true;
+    public $auth = true;
+    public $php_self = 'identity';
+    public $authRedirection = 'identity';
+    public $ssl = true;
 
-	public function init()
-	{
-		parent::init();
-		$this->customer = $this->context->customer;
-	}
+    public $passwordRequired = true;
 
-	/**
-	 * Start forms process
-	 * @see FrontController::postProcess()
-	 */
-	public function postProcess()
-	{
-		$origin_newsletter = (bool)$this->customer->newsletter;
+    /**
+     * Assign template vars related to page content.
+     *
+     * @see FrontController::initContent()
+     */
+    public function initContent()
+    {
+        $should_redirect = false;
 
-		if (isset($_POST['years']) && isset($_POST['months']) && isset($_POST['days']))
-			$this->customer->birthday = (int)($_POST['years']).'-'.(int)($_POST['months']).'-'.(int)($_POST['days']);
+        $customer_form = $this->makeCustomerForm()->setPasswordRequired($this->passwordRequired);
+        $customer = new Customer();
 
-		if (Tools::isSubmit('submitIdentity'))
-		{
-			if (!@checkdate(Tools::getValue('months'), Tools::getValue('days'), Tools::getValue('years')) &&
-				!(Tools::getValue('months') == '' && Tools::getValue('days') == '' && Tools::getValue('years') == ''))
-				$this->errors[] = Tools::displayError('Invalid date of birth.');
-			else
-			{
-				$email = trim(Tools::getValue('email'));
-				$this->customer->birthday = (empty($_POST['years']) ? '' : (int)$_POST['years'].'-'.(int)$_POST['months'].'-'.(int)$_POST['days']);
-				if (isset($_POST['old_passwd']))
-					$_POST['old_passwd'] = trim($_POST['old_passwd']);
-				
-				if (!Validate::isEmail($email))
-					$this->errors[] = Tools::displayError('This email address is not valid');
-				elseif ($this->customer->email != $email && Customer::customerExists($email, true))
-					$this->errors[] = Tools::displayError('An account using this email address has already been registered.');
-				elseif ((!isset($_POST['old_passwd']) || empty($_POST['old_passwd'])) || (Tools::encrypt($_POST['old_passwd']) != $this->context->cookie->passwd))
-					$this->errors[] = Tools::displayError('The password you entered is incorrect.');
-				elseif ($_POST['passwd'] != $_POST['confirmation'])
-					$this->errors[] = Tools::displayError('The password and confirmation do not match.');
-				else
-				{
-					$prev_id_default_group = $this->customer->id_default_group;
+        $customer_form->getFormatter()
+            ->setAskForNewPassword(true)
+            ->setAskForPassword($this->passwordRequired)
+            ->setPasswordRequired($this->passwordRequired)
+            ->setPartnerOptinRequired($customer->isFieldRequired('optin'));
 
-					// Merge all errors of this file and of the Object Model
-					$this->errors = array_merge($this->errors, $this->customer->validateController());
-				}
+        if (Tools::isSubmit('submitCreate')) {
+            $customer_form->fillWith(Tools::getAllValues());
+            if ($customer_form->submit()) {
+                $this->success[] = $this->trans('Information successfully updated.', [], 'Shop.Notifications.Success');
+                $should_redirect = true;
+            } else {
+                $this->errors[] = $this->trans('Could not update your information, please check your data.', [], 'Shop.Notifications.Error');
+            }
+        } else {
+            $customer_form->fillFromCustomer(
+                $this->context->customer
+            );
+        }
 
-				if (!count($this->errors))
-				{
-					$this->customer->id_default_group = (int)$prev_id_default_group;
-					$this->customer->firstname = Tools::ucfirst(Tools::strtolower($this->customer->firstname));
+        $this->context->smarty->assign([
+            'customer_form' => $customer_form->getProxy(),
+        ]);
 
-					if (!isset($_POST['newsletter']))
-						$this->customer->newsletter = 0;
-					elseif (!$origin_newsletter && isset($_POST['newsletter']))
-						if ($module_newsletter = Module::getInstanceByName('blocknewsletter'))
-							if ($module_newsletter->active)
-								$module_newsletter->confirmSubscription($this->customer->email);
+        if ($should_redirect) {
+            $this->redirectWithNotifications($this->getCurrentURL());
+        }
 
-					if (!isset($_POST['optin']))
-						$this->customer->optin = 0;
-					if (Tools::getValue('passwd'))
-						$this->context->cookie->passwd = $this->customer->passwd;
-					if ($this->customer->update())
-					{
-						$this->context->cookie->customer_lastname = $this->customer->lastname;
-						$this->context->cookie->customer_firstname = $this->customer->firstname;
-						$this->context->smarty->assign('confirmation', 1);
-					}
-					else
-						$this->errors[] = Tools::displayError('The information cannot be updated.');
-				}
-			}
-		}
-		else
-			$_POST = array_map('stripslashes', $this->customer->getFields());
+        parent::initContent();
+        $this->setTemplate('customer/identity');
+    }
 
-		return $this->customer;
-	}
-	/**
-	 * Assign template vars related to page content
-	 * @see FrontController::initContent()
-	 */
-	public function initContent()
-	{
-		parent::initContent();
+    public function getBreadcrumbLinks()
+    {
+        $breadcrumb = parent::getBreadcrumbLinks();
 
-		if ($this->customer->birthday)
-			$birthday = explode('-', $this->customer->birthday);
-		else
-			$birthday = array('-', '-', '-');
+        $breadcrumb['links'][] = $this->addMyAccountToBreadcrumb();
 
-		/* Generate years, months and days */
-		$this->context->smarty->assign(array(
-				'years' => Tools::dateYears(),
-				'sl_year' => $birthday[0],
-				'months' => Tools::dateMonths(),
-				'sl_month' => $birthday[1],
-				'days' => Tools::dateDays(),
-				'sl_day' => $birthday[2],
-				'errors' => $this->errors,
-				'genders' => Gender::getGenders(),
-			));
+        $breadcrumb['links'][] = [
+            'title' => $this->trans('Your personal information', [], 'Shop.Theme.Customeraccount'),
+            'url' => $this->context->link->getPageLink('identity'),
+        ];
 
-		$this->context->smarty->assign('newsletter', (int)Module::getInstanceByName('blocknewsletter')->active);
-
-		$this->setTemplate(_PS_THEME_DIR_.'identity.tpl');
-	}
-
-	public function setMedia()
-	{
-		parent::setMedia();
-		$this->addCSS(_THEME_CSS_DIR_.'identity.css');
-	}
-
+        return $breadcrumb;
+    }
 }

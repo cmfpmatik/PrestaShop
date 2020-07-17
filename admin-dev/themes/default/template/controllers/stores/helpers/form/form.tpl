@@ -1,27 +1,27 @@
-{*
-* 2007-2013 PrestaShop
-*
-* NOTICE OF LICENSE
-*
-* This source file is subject to the Academic Free License (AFL 3.0)
-* that is bundled with this package in the file LICENSE.txt.
-* It is also available through the world-wide-web at this URL:
-* http://opensource.org/licenses/afl-3.0.php
-* If you did not receive a copy of the license and are unable to
-* obtain it through the world-wide-web, please send an email
-* to license@prestashop.com so we can send you a copy immediately.
-*
-* DISCLAIMER
-*
-* Do not edit or add to this file if you wish to upgrade PrestaShop to newer
-* versions in the future. If you wish to customize PrestaShop for your
-* needs please refer to http://www.prestashop.com for more information.
-*
-*  @author PrestaShop SA <contact@prestashop.com>
-*  @copyright  2007-2013 PrestaShop SA
-*  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
-*  International Registered Trademark & Property of PrestaShop SA
-*}
+{**
+ * Copyright since 2007 PrestaShop SA and Contributors
+ * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.md.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@prestashop.com so we can send you a copy immediately.
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
+ * versions in the future. If you wish to customize PrestaShop for your
+ * needs please refer to https://devdocs.prestashop.com/ for more information.
+ *
+ * @author    PrestaShop SA and Contributors <contact@prestashop.com>
+ * @copyright Since 2007 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ *}
 {extends file="helpers/form/form.tpl"}
 
 {block name=script}
@@ -34,60 +34,68 @@
 
 {block name="input"}
 	{if $input.type == 'latitude'}
-		<input type="text"
-			{if isset($input.size)}size="{$input.size}"{/if}
-			{if isset($input.maxlength)}maxlength="{$input.maxlength}"{/if}
-			name="latitude"
-			id="latitude"
-			value="{$fields_value[$input.name]|escape:'htmlall'}" /> /
-		<input type="text"
-			{if isset($input.size)}size="{$input.size}"{/if}
-			{if isset($input.maxlength)}maxlength="{$input.maxlength}"{/if}
-			name="longitude"
-			id="longitude"
-			value="{$fields_value['longitude']|escape:'htmlall'}" />
+	<div class="row">
+		<div class="col-lg-3">
+			<input type="text"
+				{if isset($input.size)}size="{$input.size}"{/if}
+				{if isset($input.maxlength)}maxlength="{$input.maxlength}"{/if}
+				name="latitude"
+				id="latitude"
+				value="{$fields_value[$input.name]|escape:'html':'UTF-8'}" />
+		</div>
+		<div class="col-lg-1">
+			<div class="form-control-static text-center"> / </div>
+		</div>
+		<div class="col-lg-3">
+			<input type="text"
+				{if isset($input.size)}size="{$input.size}"{/if}
+				{if isset($input.maxlength)}maxlength="{$input.maxlength}"{/if}
+				name="longitude"
+				id="longitude"
+				value="{$fields_value['longitude']|escape:'html':'UTF-8'}" />
+		</div>
+	</div>
 	{else}
 		{$smarty.block.parent}
 	{/if}
 {/block}
 
 {block name="other_input"}
-	{if $key == 'rightCols'}
-		{foreach $field as $input}
-			{if $input.type == 'file'}
-				<label style="text-align: left; width: inherit;width:250px;text-align:right">{$input.label} </label>
-				<div class="margin-form">
-					<input type="file" name="{$input.name}" />
-					<p class="clear">{$input.desc}</p>
-					{if isset($fields_value.image) && $fields_value.image}
-						<div id="image" style="width:370px;">
-							{$fields_value.image}
-							<p align="center">{l s='File size'} {$fields_value.size}kb</p>
-							<a href="{$current}&id_store={$form_id}&token={$token}&deleteImage=1">
-								<img src="../img/admin/delete.gif" alt="{l s='Delete'}" /> {l s='Delete'}
-							</a>
-						</div>
-					{/if}
-				</div>
-			{/if}
-			<table cellpadding="2" cellspacing="2" style="padding: 10px; margin: 15px 0 20px 260px; border: 1px solid #BBB;">
-				<tr>
-					<th colspan="2">{l s='Hours:'}</th>
-				</tr>
-				<tr>
-					<td>&nbsp;</td>
-					<td style="font-size: 0.85em;">{l s='e.g. 10:00AM - 9:30PM'}</td>
-				</tr>
-
-				{foreach $fields_value.days as $k => $value}
-					<tr style="color: #7F7F7F; font-size: 0.85em;">
-						<td>{$value}</td>
-						<td><input type="text" size="25" name="hours_{$k}" value="{if isset($fields_value.hours[$k-1])}{$fields_value.hours[$k-1]|escape:'htmlall'}{/if}" /><br /></td>
-					</tr>
-				{/foreach}
-			</table>
-		<div class="clear"></div>
-		{/foreach}
-	{/if}
+	{if $key == 'hours'}
+    <div class="form-group">
+      <label class="control-label col-lg-3">{l s='Hours:' d='Admin.Shopparameters.Feature'}</label>
+      <div class="col-lg-9"><p class="form-control-static">{l s='e.g. 10:00AM - 9:30PM' d='Admin.Shopparameters.Help'}</p></div>
+    </div>
+    {foreach $fields_value.days as $k => $value}
+    <div class="form-group">
+      <label class="control-label col-lg-3">{$value}</label>
+      {if $languages|count > 1}
+        {foreach $languages as $language}
+          <div class="translatable-field lang-{$language.id_lang}" {if $language.id_lang != $defaultFormLanguage}style="display:none"{/if}>
+            <div class="col-lg-7">
+              <input type="text" size="25"
+                     name="hours[{$k}][{$language.id_lang}]"
+                     value="{if isset($fields_value.hours[$language.id_lang][$k-1])}{$fields_value.hours[$language.id_lang][$k-1]|escape:'html':'UTF-8'}{/if}"/>
+            </div>
+            <div class="col-lg-2">
+              <button type="button" class="btn btn-default dropdown-toggle" tabindex="-1" data-toggle="dropdown">
+                {$language.iso_code}
+                <i class="icon-caret-down"></i>
+              </button>
+              <ul class="dropdown-menu">
+                {foreach from=$languages item=language}
+                  <li><a href="javascript:hideOtherLanguage({$language.id_lang});"
+                         tabindex="-1">{$language.name}</a></li>
+                {/foreach}
+              </ul>
+            </div>
+          </div>
+        {/foreach}
+      {else}
+        <div class="col-lg-9"><input type="text" size="25" name="hours[{$k}]" value="{if isset($fields_value.hours[$k-1])}{$fields_value.hours[$k-1]|escape:'html':'UTF-8'}{/if}"/>
+        </div>
+      {/if}
+    </div>
+    {/foreach}
+  {/if}
 {/block}
-
